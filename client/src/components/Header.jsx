@@ -1,15 +1,7 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import clsx from "clsx";
-import {
-  ChevronDown,
-  Headset,
-  Heart,
-  MapPin,
-  Search,
-  ShoppingBag,
-  UserRound
-} from "lucide-react";
+import { ChevronDown, Heart, MapPin, Search, ShoppingBag, UserRound } from "lucide-react";
 import { logout } from "../app/store";
 import Logo from "./Logo";
 
@@ -29,15 +21,12 @@ const Header = () => {
         <div className="container top-header-inner">
           <div className="top-left">
             <span>
-              <MapPin size={14} /> Delivery across Bangladesh
-            </span>
-            <span>
-              <Headset size={14} /> Helpline: +880 1700-123456
+              <MapPin size={14} /> Luxury toys delivered across Bangladesh
             </span>
           </div>
           <div className="top-right">
+            <a href="#catalog">Collection</a>
             <Link to="/orders">Track Order</Link>
-            <a href="#catalog">New Drops</a>
             <span>
               BDT <ChevronDown size={13} />
             </span>
@@ -50,7 +39,7 @@ const Header = () => {
           <Logo />
 
           <form className="header-search" role="search" onSubmit={(e) => e.preventDefault()}>
-            <input type="search" placeholder="Search toys, brands, categories..." aria-label="Search toys" />
+            <input type="search" placeholder="Search premium toys..." aria-label="Search toys" />
             <button type="submit" aria-label="Search">
               <Search size={16} />
             </button>
@@ -83,7 +72,7 @@ const Header = () => {
       <div className="header-nav-row">
         <div className="container nav-row-inner">
           <button type="button" className="browse-btn">
-            Browse Categories <ChevronDown size={15} />
+            Categories <ChevronDown size={15} />
           </button>
 
           <nav className="main-nav">
@@ -91,7 +80,7 @@ const Header = () => {
               Home
             </NavLink>
             <a href="#catalog" className="nav-link">
-              Shop
+              Collection
             </a>
             <NavLink className={({ isActive }) => clsx("nav-link", isActive && "is-active")} to="/new-arrivals">
               New Arrivals

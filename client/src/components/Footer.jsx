@@ -11,7 +11,8 @@ const Footer = () => {
             <Logo compact />
           </div>
           <p>
-            ToyKart curates thoughtful toys for playful learning and calm, happy family moments.
+            A luxury toy destination for modern families in Bangladesh. Thoughtful curation, timeless design, and
+            playful excellence.
           </p>
           <div className="socials">
             <a href="#" aria-label="Facebook">
@@ -27,25 +28,25 @@ const Footer = () => {
         </div>
 
         <div>
-          <h3>Shop</h3>
+          <h3>Collections</h3>
           <ul>
             <li>
-              <a href="#catalog">Learning Toys</a>
+              <a href="#catalog">Signature Learning</a>
             </li>
             <li>
-              <a href="#catalog">STEM Picks</a>
+              <a href="#catalog">STEM Atelier</a>
             </li>
             <li>
-              <a href="#catalog">Creative Play</a>
+              <a href="#catalog">Creative Studio</a>
             </li>
             <li>
-              <a href="#catalog">Outdoor Fun</a>
+              <a href="#catalog">Outdoor Editions</a>
             </li>
           </ul>
         </div>
 
         <div>
-          <h3>Support</h3>
+          <h3>Client Care</h3>
           <ul>
             <li>
               <Link to="/orders">Track Orders</Link>
@@ -54,16 +55,16 @@ const Footer = () => {
               <Link to="/login">My Account</Link>
             </li>
             <li>
-              <a href="#">Shipping Policy</a>
+              <a href="#">Delivery Policy</a>
             </li>
             <li>
-              <a href="#">Returns</a>
+              <a href="#">Returns & Exchange</a>
             </li>
           </ul>
         </div>
 
         <div>
-          <h3>Contact</h3>
+          <h3>Concierge</h3>
           <ul className="contact-list">
             <li>
               <Phone size={15} /> +880 1700-123456
@@ -71,7 +72,7 @@ const Footer = () => {
             <li>
               <Mail size={15} /> hello@toykart.com
             </li>
-            <li>Sat-Thu, 10:00 AM - 9:00 PM</li>
+            <li>Sat-Thu, 10:00 AM - 9:00 PM (BST)</li>
           </ul>
         </div>
       </div>
@@ -79,7 +80,7 @@ const Footer = () => {
       <div className="footer-bottom">
         <div className="container footer-bottom-inner">
           <p>© {new Date().getFullYear()} ToyKart. All rights reserved.</p>
-          <p>Secure checkout · Nationwide delivery · Family-first service</p>
+          <p>Secure checkout · Premium packaging · Nationwide delivery</p>
         </div>
       </div>
     </footer>

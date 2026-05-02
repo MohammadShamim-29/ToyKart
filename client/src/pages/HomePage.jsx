@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Palette, ShieldCheck, Truck } from "lucide-react";
+import { ArrowRight, ShieldCheck, Sparkles, Star, Truck } from "lucide-react";
 import api from "../api";
 import { categoryLabel } from "../utils/categoryLabel";
 
@@ -13,8 +13,8 @@ const currency = new Intl.NumberFormat("en-BD", {
 
 const heroSlides = [
   {
-    title: "Where Play Meets Imagination",
-    subtitle: "Curated toys that make learning joyful and childhood colorful.",
+    title: "Play, Recrafted in Jewel Tones",
+    subtitle: "A high-design storefront for curated family living in Bangladesh.",
     image:
       "https://images.unsplash.com/photo-1759680190851-199358b2cd8c?auto=format&fit=crop&w=1800&q=80",
     sourceLabel: "Unsplash",
@@ -22,16 +22,16 @@ const heroSlides = [
       "https://unsplash.com/photos/a-colorful-collection-of-small-plastic-toys-wh4psDv-NW8"
   },
   {
-    title: "Calm, Creative, and Full of Wonder",
-    subtitle: "Beautiful toys for focused play, storytelling, and everyday family moments.",
+    title: "Statement Pieces for Everyday Wonder",
+    subtitle: "Refined toys, bold palettes, and tactile finishes that feel collectible.",
     image:
       "https://images.pexels.com/photos/18990727/pexels-photo-18990727.jpeg?cs=srgb&fm=jpg&w=1800",
     sourceLabel: "Pexels",
     sourceUrl: "https://www.pexels.com/photo/adorable-kid-playing-with-constructor-set-at-home-18990727/"
   },
   {
-    title: "Designed for Happy Little Explorers",
-    subtitle: "Safe materials, thoughtful designs, and toys kids actually love to revisit.",
+    title: "Modern Heritage for New Homes",
+    subtitle: "Designed for gifting, celebrating, and creating unforgettable play rituals.",
     image: "https://cdn.pixabay.com/photo/2020/03/20/06/40/baby-4949751_1280.jpg",
     sourceLabel: "Pixabay",
     sourceUrl: "https://pixabay.com/photos/baby-plays-toys-childrens-room-4949751/"
@@ -42,21 +42,21 @@ const lifestyleGallery = [
   {
     image:
       "https://images.unsplash.com/photo-1685358259043-a367462adf15?auto=format&fit=crop&w=1200&q=80",
-    title: "Fine Motor Practice",
-    text: "Simple activities that build confidence and concentration.",
+    title: "Deep Color Stories",
+    text: "Collections built around rich tones and premium textures.",
     source: "Unsplash"
   },
   {
     image:
       "https://images.pexels.com/photos/31152757/pexels-photo-31152757.jpeg?cs=srgb&fm=jpg&w=1200",
-    title: "Home Play Corners",
-    text: "Warm setups that invite independent, playful learning.",
+    title: "Editorial Display",
+    text: "Toys that look beautiful on shelves even after playtime.",
     source: "Pexels"
   },
   {
     image: "https://cdn.pixabay.com/photo/2018/09/09/13/26/toys-3664574_640.jpg",
-    title: "Natural Texture Toys",
-    text: "Wooden textures and colors that feel timeless and calm.",
+    title: "Gift-Ready Curation",
+    text: "Beautifully chosen picks for birthdays and special occasions.",
     source: "Pixabay"
   }
 ];
@@ -98,33 +98,37 @@ const HomePage = () => {
 
   return (
     <div className="home-clean stack-lg">
-      <section className="hero-slider">
+      <section className="hero-opal">
         <AnimatePresence mode="wait">
           <motion.article
             key={currentSlide.image}
-            className="hero-slide"
+            className="hero-opal-card"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.45 }}
           >
-            <img src={currentSlide.image} alt={currentSlide.title} className="hero-slide-image" />
-            <div className="hero-slide-overlay" />
-            <div className="hero-slide-content">
-              <p className="eyebrow">ToyKart Collection</p>
-              <h1>{currentSlide.title}</h1>
-              <p>{currentSlide.subtitle}</p>
-              <div className="hero-actions">
+            <div className="hero-opal-media">
+              <img src={currentSlide.image} alt={currentSlide.title} className="hero-slide-image" />
+              <div className="hero-slide-overlay" />
+            </div>
+            <div className="hero-opal-content">
+              <p className="eyebrow">ToyKart Signature</p>
+              <h1 className="hero-opal-title">{currentSlide.title}</h1>
+              <p className="hero-opal-copy">{currentSlide.subtitle}</p>
+              <div className="hero-actions hero-actions-opal">
                 <a className="btn btn-primary" href="#catalog">
-                  Explore Products <ArrowRight size={15} />
+                  Shop Signature <ArrowRight size={15} />
                 </a>
                 <Link className="btn btn-secondary" to="/register">
-                  Create Account
+                  Become a Member
                 </Link>
               </div>
-              <a href={currentSlide.sourceUrl} target="_blank" rel="noreferrer" className="hero-credit">
-                Photo source: {currentSlide.sourceLabel}
-              </a>
+              <ul className="hero-opal-points">
+                <li>Premium picks across Bangladesh</li>
+                <li>Cash on delivery and secure checkout</li>
+                <li>Curated arrivals weekly</li>
+              </ul>
             </div>
           </motion.article>
         </AnimatePresence>
@@ -140,33 +144,36 @@ const HomePage = () => {
             />
           ))}
         </div>
+        <a href={currentSlide.sourceUrl} target="_blank" rel="noreferrer" className="hero-credit">
+          Photo source: {currentSlide.sourceLabel}
+        </a>
       </section>
 
-      <section className="trust-row">
+      <section className="trust-row trust-row-opal">
         <article className="trust-card card">
           <ShieldCheck size={18} />
           <div>
-            <h3>Safety First</h3>
-            <p>Carefully selected items with child-safe focus.</p>
+            <h3>Child-Safe Standards</h3>
+            <p>Every item is screened for safety, finish quality, and durability.</p>
           </div>
         </article>
         <article className="trust-card card">
           <Truck size={18} />
           <div>
-            <h3>Fast Delivery</h3>
-            <p>Quick shipping across major cities in Bangladesh.</p>
+            <h3>Concierge Delivery</h3>
+            <p>Reliable delivery across Bangladesh with careful packaging.</p>
           </div>
         </article>
         <article className="trust-card card">
-          <Palette size={18} />
+          <Sparkles size={18} />
           <div>
-            <h3>Playful Design</h3>
-            <p>Colorful toys that still feel clean and modern.</p>
+            <h3>Curated Aesthetics</h3>
+            <p>Minimal silhouettes and refined tones inspired by luxury retail.</p>
           </div>
         </article>
       </section>
 
-      <section className="gallery-clean">
+      <section className="gallery-clean gallery-opal">
         {lifestyleGallery.map((item) => (
           <article className="gallery-item card" key={item.title}>
             <img src={item.image} alt={item.title} />
@@ -179,9 +186,9 @@ const HomePage = () => {
         ))}
       </section>
 
-      <section className="stack-md" id="catalog">
+      <section className="stack-md catalog-opal" id="catalog">
         <div className="section-head">
-          <h2>Featured Picks</h2>
+          <h2>Signature Collection</h2>
           {!loading && !error && <p className="subtext">{products.length} products in catalog</p>}
         </div>
 
@@ -191,20 +198,26 @@ const HomePage = () => {
         {!loading && !error && (
           <div className="grid cards-grid">
             {featuredProducts.map((product) => (
-              <article className="card product-card" key={product._id}>
-                <img src={product.image} alt={product.name} loading="lazy" />
-                <div className="stack-sm">
-                  <p className="subtext">
-                    {categoryLabel(product.category)} • Age {product.ageGroup}
-                  </p>
-                  <h3>{product.name}</h3>
-                  <p className="clamp">{product.description}</p>
-                  <div className="product-meta">
+              <article className="card product-card product-card-opal" key={product._id}>
+                <div className="product-card-opal-media">
+                  <img src={product.image} alt={product.name} loading="lazy" />
+                  <span className="product-card-chip">{categoryLabel(product.category)}</span>
+                </div>
+                <div className="stack-sm product-card-opal-body">
+                  <h3 className="product-card-opal-title">{product.name}</h3>
+                  <p className="clamp product-card-opal-copy">{product.description}</p>
+                  <div className="product-meta product-card-opal-meta">
                     <span className="price">{currency.format(product.price)}</span>
+                    <span className="stock">Age {product.ageGroup}</span>
+                  </div>
+                  <div className="product-card-opal-foot">
+                    <span className="product-card-opal-rating">
+                      <Star size={14} /> Premium Pick
+                    </span>
                     <span className="stock">Stock: {product.countInStock}</span>
                   </div>
                   <Link className="btn btn-secondary" to={`/product/${product._id}`}>
-                    View Details
+                    View Product
                   </Link>
                 </div>
               </article>
