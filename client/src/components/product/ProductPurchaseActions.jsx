@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import clsx from "clsx";
-import { GitCompare, Heart, ShoppingCart } from "lucide-react";
+import { GitCompare, ShoppingCart } from "lucide-react";
 import { addToCartAjax } from "../../app/addToCartAjax";
 
-const WISH_KEY = "toykart-wishlist-v1";
 const CMP_KEY = "toykart-compare-v1";
 
 const readJson = (key, fallback) => {
@@ -24,7 +23,6 @@ const writeJson = (key, val) => {
 const ProductPurchaseActions = ({ product, inStock }) => {
   const dispatch = useDispatch();
   const [qty, setQty] = useState(1);
-  const [wish, setWish] = useState(false);
   const [cmp, setCmp] = useState(false);
   const [cartMsg, setCartMsg] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -35,9 +33,7 @@ const ProductPurchaseActions = ({ product, inStock }) => {
 
   useEffect(() => {
     if (!id) return;
-    const w = readJson(WISH_KEY, []);
     const c = readJson(CMP_KEY, []);
-    setWish(Array.isArray(w) && w.includes(id));
     setCmp(Array.isArray(c) && c.includes(id));
   }, [id]);
 
@@ -53,17 +49,6 @@ const ProductPurchaseActions = ({ product, inStock }) => {
     },
     []
   );
-
-  const toggleWish = () => {
-    if (!id) return;
-    const w = readJson(WISH_KEY, []);
-    const set = new Set(Array.isArray(w) ? w : []);
-    if (set.has(id)) set.delete(id);
-    else set.add(id);
-    const next = [...set];
-    writeJson(WISH_KEY, next);
-    setWish(set.has(id));
-  };
 
   const toggleCompare = () => {
     if (!id) return;
@@ -127,15 +112,6 @@ const ProductPurchaseActions = ({ product, inStock }) => {
         >
           <ShoppingCart size={20} />
           {isAdding ? "Adding..." : isAdded ? "Added" : "Add to cart"}
-        </button>
-        <button
-          type="button"
-          className={clsx("btn btn-secondary pd-icon-cta", wish && "is-active")}
-          aria-pressed={wish}
-          aria-label={wish ? "Remove from wishlist" : "Add to wishlist"}
-          onClick={toggleWish}
-        >
-          <Heart size={20} fill={wish ? "currentColor" : "none"} />
         </button>
         <button
           type="button"

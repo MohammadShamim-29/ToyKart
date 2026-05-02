@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Trash2 } from "lucide-react";
+import { Trash2, FileDown } from "lucide-react";
 import api from "../api";
+import { generateReceipt } from "../utils/generateReceipt";
 
 const currency = new Intl.NumberFormat("en-BD", {
   style: "currency",
@@ -216,13 +217,22 @@ const OrdersPage = () => {
                       </span>
                     </p>
                   )}
-                  <div className="order-actions">
+                  <div className="order-actions" style={{ display: 'flex', gap: '0.5rem' }}>
                     <button
                       type="button"
                       className="btn btn-primary"
+                      style={{ flex: 1 }}
                       onClick={() => setActionModalOrderId(order._id)}
                     >
                       Open Action Center
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      onClick={() => generateReceipt(order)}
+                    >
+                      <FileDown size={16} /> Receipt
                     </button>
                   </div>
                 </>

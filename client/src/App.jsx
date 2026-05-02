@@ -3,6 +3,7 @@ import { LinearProgress } from "@mui/material";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import HomePage from "./pages/HomePage";
+import ShopPage from "./pages/ShopPage";
 import NewArrivalsPage from "./pages/NewArrivalsPage";
 import ProductPage from "./pages/ProductPage";
 import LoginPage from "./pages/LoginPage";
@@ -53,6 +54,7 @@ const App = () => {
 
       <Route element={<StorefrontLayout />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/shop" element={<ShopPage />} />
         <Route path="/new-arrivals" element={<NewArrivalsPage />} />
         <Route path="/product/:id" element={<ProductPage />} />
         <Route path="/cart" element={<CartPage />} />

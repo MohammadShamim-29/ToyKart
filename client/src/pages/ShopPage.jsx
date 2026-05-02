@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import api from "../api";
 import { addToCartAjax } from "../app/addToCartAjax";
@@ -11,36 +11,53 @@ const currency = new Intl.NumberFormat("en-BD", {
   maximumFractionDigits: 0
 });
 
-const NewArrivalsPage = () => {
+const ShopPage = () => {
   const dispatch = useDispatch();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [addingId, setAddingId] = useState("");
   const [addedId, setAddedId] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [searchParams] = useSearchParams();
+  const categoryId = searchParams.get("category");
+  const keyword = searchParams.get("keyword");
+
+  useEffect(() => {
+    const fetchCats = async () => {
+      try {
+        const { data } = await api.get("/categories");
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchCats();
+  }, []);
+
+  const activeCategory = categories.find(c => c.slug === categoryId || c._id === categoryId);
+  let pageTitle = activeCategory ? `${activeCategory.name} Collection` : "Shop All Collection";
+  if (keyword) pageTitle = `Search results for "${keyword}"`;
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchNewArrivals = async () => {
+    const fetchItems = async () => {
       setLoading(true);
       setError("");
       try {
         const { data } = await api.get("/products", {
-          params: {
-            newArrival: true,
-            sort: "newest",
-            page: 1,
-            limit: 24
+          params: { 
+            category: categoryId || undefined,
+            keyword: keyword || undefined
           }
         });
-
         if (!cancelled) {
-          setItems(Array.isArray(data?.items) ? data.items : []);
+          setItems(Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err.response?.data?.message || "Could not load new arrivals right now.");
+          setError(err.response?.data?.message || "Could not load products right now.");
           setItems([]);
         }
       } finally {
@@ -50,17 +67,17 @@ const NewArrivalsPage = () => {
       }
     };
 
-    fetchNewArrivals();
+    fetchItems();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [categoryId, keyword]);
 
   return (
-    <section className="stack-md" id="new-arrivals">
+    <section className="stack-md" id="shop">
       <div className="section-head">
-        <h2>New Arrivals</h2>
+        <h2>{pageTitle}</h2>
         {!loading && !error && (
           <p className="subtext">
             {items.length} product{items.length === 1 ? "" : "s"}
@@ -68,11 +85,11 @@ const NewArrivalsPage = () => {
         )}
       </div>
 
-      {loading && <p className="notice">Loading new arrivals...</p>}
+      {loading && <p className="notice">Loading collection...</p>}
       {error && <p className="error">{error}</p>}
 
       {!loading && !error && items.length === 0 && (
-        <p className="subtext">No products are marked as new arrivals yet.</p>
+        <p className="subtext">No products in collection yet.</p>
       )}
 
       {!loading && !error && items.length > 0 && (
@@ -134,4 +151,4 @@ const NewArrivalsPage = () => {
   );
 };
 
-export default NewArrivalsPage;
+export default ShopPage;

@@ -3,6 +3,8 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { formatBdt } from "../utils/formatCurrency";
 import { clearCart } from "../app/cartSlice";
+import { generateReceipt } from "../utils/generateReceipt";
+import { FileDown } from "lucide-react";
 
 const STORAGE_KEY = "checkout:lastOrder";
 
@@ -69,13 +71,20 @@ const CheckoutThankYouPage = () => {
           <p className="subtext">Order details are not available in this session, but your order request was submitted.</p>
         )}
 
-        <div className="thank-you-actions">
-          <Link to="/orders" className="btn btn-primary">
-            View my orders
-          </Link>
-          <Link to="/" className="btn btn-secondary">
-            Continue shopping
-          </Link>
+        <div className="thank-you-actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {order && (
+            <button type="button" className="btn btn-primary" onClick={() => generateReceipt(order)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%' }}>
+              <FileDown size={18} /> Download Receipt (PDF)
+            </button>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', width: '100%' }}>
+            <Link to="/orders" className="btn btn-secondary">
+              View orders
+            </Link>
+            <Link to="/" className="btn btn-secondary">
+              Home
+            </Link>
+          </div>
         </div>
       </div>
     </section>

@@ -364,10 +364,6 @@ const CheckoutPage = () => {
               <dt>Shipping</dt>
               <dd>{formatBdt(shippingPrice)}</dd>
             </div>
-            <div>
-              <dt>Tax</dt>
-              <dd>{formatBdt(taxPrice)}</dd>
-            </div>
             <div className="cart-summary-total">
               <dt>Total</dt>
               <dd>{formatBdt(totalPrice)}</dd>

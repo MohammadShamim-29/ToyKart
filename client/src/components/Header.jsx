@@ -1,19 +1,34 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import clsx from "clsx";
-import { ChevronDown, Heart, MapPin, Search, ShoppingBag, UserRound } from "lucide-react";
+import { ChevronDown, MapPin, Search, ShoppingBag, UserRound } from "lucide-react";
 import { logout } from "../app/store";
 import { selectCartItemCount } from "../app/cartSlice";
 import Logo from "./Logo";
+import api from "../api";
 
 const Header = () => {
   const { userInfo } = useSelector((state) => state.auth);
   const cartCount = useSelector(selectCartItemCount);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const [cartPulse, setCartPulse] = useState(false);
   const pulseTimer = useRef(null);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data } = await api.get("/categories");
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to fetch categories", err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const onCartAdded = () => {
@@ -33,6 +48,23 @@ const Header = () => {
     navigate("/");
   };
 
+  const [keyword, setKeyword] = useState("");
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const k = searchParams.get("keyword") || "";
+    setKeyword(k);
+  }, [location.search]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (keyword.trim()) {
+      navigate(`/shop?keyword=${encodeURIComponent(keyword.trim())}`);
+    } else {
+      navigate("/shop");
+    }
+  };
+
   return (
     <header className="header-shell">
       <div className="top-header">
@@ -43,7 +75,7 @@ const Header = () => {
             </span>
           </div>
           <div className="top-right">
-            <a href="#catalog">Collection</a>
+            <Link to="/shop">Collection</Link>
             <Link to="/orders">Track Order</Link>
             <span>
               BDT <ChevronDown size={13} />
@@ -56,59 +88,43 @@ const Header = () => {
         <div className="container header-main-inner">
           <Logo />
 
-          <form className="header-search" role="search" onSubmit={(e) => e.preventDefault()}>
-            <input type="search" placeholder="Search premium toys..." aria-label="Search toys" />
-            <button type="submit" aria-label="Search">
-              <Search size={16} />
-            </button>
-          </form>
-
-          <div className="header-tools">
-            <Link className="tool-item" to="/register">
-              <Heart size={17} />
-              <span>Wishlist</span>
-            </Link>
-            <Link className={clsx("tool-item cart-tool", cartPulse && "is-pulsing")} to="/cart">
-              <span className="cart-tool-icon-wrap">
-                <ShoppingBag size={17} />
-                {cartCount > 0 ? <span className="cart-count-badge">{cartCount}</span> : null}
-              </span>
-              <span>Cart</span>
-            </Link>
-            {userInfo ? (
-              <button type="button" onClick={onLogout} className="tool-item btn btn-ghost logout-btn">
-                <UserRound size={17} />
-                <span>Logout</span>
-              </button>
-            ) : (
-              <Link className="tool-item" to="/login">
-                <UserRound size={17} />
-                <span>Account</span>
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="header-nav-row">
-        <div className="container nav-row-inner">
-          <button type="button" className="browse-btn">
-            Categories <ChevronDown size={15} />
-          </button>
-
           <nav className="main-nav">
             <NavLink className={({ isActive }) => clsx("nav-link", isActive && "is-active")} to="/">
               Home
             </NavLink>
-            <a href="#catalog" className="nav-link">
-              Collection
-            </a>
+            <NavLink className={({ isActive }) => clsx("nav-link", isActive && "is-active")} to="/shop">
+              Shop
+            </NavLink>
+            <div className="nav-dropdown-wrap" onMouseEnter={(e) => e.currentTarget.classList.add('is-hovered')} onMouseLeave={(e) => e.currentTarget.classList.remove('is-hovered')} style={{ position: 'relative' }}>
+              <button type="button" className="nav-link" style={{ background: 'none', border: 'none', font: 'inherit', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                Categories <ChevronDown size={14} />
+              </button>
+              <div className="browse-dropdown" style={{ display: 'none', top: '100%', left: '0', minWidth: '180px' }}>
+                <ul className="browse-dropdown-list">
+                  {categories.map((cat) => (
+                    <li key={cat._id}>
+                      <Link className="browse-dropdown-link" to={`/shop?category=${cat.slug || cat._id}`}>
+                        {cat.name}
+                      </Link>
+                    </li>
+                  ))}
+                  {categories.length === 0 && <li className="browse-dropdown-empty">No categories</li>}
+                </ul>
+              </div>
+              <style>{`
+                .nav-dropdown-wrap.is-hovered .browse-dropdown {
+                  display: block !important;
+                }
+              `}</style>
+            </div>
             <NavLink className={({ isActive }) => clsx("nav-link", isActive && "is-active")} to="/new-arrivals">
               New Arrivals
             </NavLink>
-            <NavLink className={({ isActive }) => clsx("nav-link", isActive && "is-active")} to="/orders">
-              My Orders
-            </NavLink>
+            {userInfo && (
+              <NavLink className={({ isActive }) => clsx("nav-link", isActive && "is-active")} to="/orders">
+                Orders
+              </NavLink>
+            )}
             {userInfo?.isAdmin && (
               <NavLink className={({ isActive }) => clsx("nav-link", isActive && "is-active")} to="/admin">
                 Admin
@@ -116,11 +132,65 @@ const Header = () => {
             )}
           </nav>
 
-          {!userInfo && (
-            <NavLink className={({ isActive }) => clsx("btn btn-primary", isActive && "is-active")} to="/register">
-              Register
-            </NavLink>
-          )}
+          <div className="header-actions">
+            <form className="header-search compact-search" role="search" onSubmit={handleSearch}>
+              <input 
+                type="search" 
+                placeholder="Search toys..." 
+                aria-label="Search toys" 
+                value={keyword}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setKeyword(val);
+                  if (val.trim()) {
+                    navigate(`/shop?keyword=${encodeURIComponent(val.trim())}`);
+                  } else if (location.pathname === '/shop') {
+                    navigate("/shop");
+                  }
+                }}
+              />
+              <button type="submit" aria-label="Search">
+                <Search size={16} />
+              </button>
+            </form>
+
+            <div className="header-tools">
+              
+              <Link className={clsx("tool-item cart-tool icon-only", cartPulse && "is-pulsing")} to="/cart" aria-label="Cart">
+                <span className="cart-tool-icon-wrap">
+                  <ShoppingBag size={18} />
+                  {cartCount > 0 ? <span className="cart-count-badge">{cartCount}</span> : null}
+                </span>
+              </Link>
+
+              {userInfo ? (
+                <div className="user-menu-wrap" style={{ position: "relative" }} onMouseEnter={(e) => e.currentTarget.classList.add('is-hovered')} onMouseLeave={(e) => e.currentTarget.classList.remove('is-hovered')}>
+                  <button type="button" className="tool-item icon-only" aria-label="Account">
+                    <UserRound size={18} />
+                  </button>
+                  <div className="account-dropdown browse-dropdown" style={{ display: "none", right: 0, left: "auto", minWidth: "150px" }}>
+                    <ul className="browse-dropdown-list">
+                      <li>
+                        <Link className="browse-dropdown-link" to="/orders">My Orders</Link>
+                      </li>
+                      <li>
+                        <button type="button" onClick={onLogout} className="browse-dropdown-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", font: "inherit" }}>Logout</button>
+                      </li>
+                    </ul>
+                  </div>
+                  <style>{`
+                    .user-menu-wrap.is-hovered .account-dropdown {
+                      display: block !important;
+                    }
+                  `}</style>
+                </div>
+              ) : (
+                <Link className="tool-item icon-only" to="/login" aria-label="Account">
+                  <UserRound size={18} />
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </header>

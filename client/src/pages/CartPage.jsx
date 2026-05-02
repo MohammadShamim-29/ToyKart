@@ -8,10 +8,7 @@ const CartPage = () => {
   const items = useSelector(selectCartItems);
   const dispatch = useDispatch();
 
-  const itemsPrice = items.reduce((sum, line) => sum + line.price * line.qty, 0);
-  const shippingPrice = items.length ? 60 : 0;
-  const taxPrice = 0;
-  const totalPrice = itemsPrice + shippingPrice + taxPrice;
+  const totalPrice = items.reduce((sum, line) => sum + line.price * line.qty, 0);
 
   if (items.length === 0) {
     return (
@@ -20,7 +17,7 @@ const CartPage = () => {
           <h1>Your cart</h1>
           <p className="subtext">Your cart is empty — discover something fun in the catalog.</p>
         </div>
-        <Link className="btn btn-primary" to="/#catalog">
+        <Link className="btn btn-primary" to="/shop">
           Browse products
         </Link>
       </section>
@@ -86,28 +83,18 @@ const CartPage = () => {
         <aside className="cart-summary card">
           <h2>Order summary</h2>
           <dl className="cart-summary-rows">
-            <div>
-              <dt>Subtotal</dt>
-              <dd>{formatBdt(itemsPrice)}</dd>
-            </div>
-            <div>
-              <dt>Shipping</dt>
-              <dd>{shippingPrice ? formatBdt(shippingPrice) : formatBdt(0)}</dd>
-            </div>
-            <div>
-              <dt>Tax</dt>
-              <dd>{formatBdt(taxPrice)}</dd>
-            </div>
             <div className="cart-summary-total">
               <dt>Estimated total</dt>
               <dd>{formatBdt(totalPrice)}</dd>
             </div>
           </dl>
-          <p className="subtext">Flat shipping (Dhaka metro estimate). Final total confirmed at checkout.</p>
+          <div className="shipping-info" style={{ margin: '1rem 0', padding: '0.75rem', background: 'var(--surface-soft)', borderRadius: '8px', fontSize: '0.85rem' }}>
+            <strong>Shipping:</strong> BDT 60 within Dhaka City, BDT 100 for destinations outside Dhaka.
+          </div>
           <Link className="btn btn-primary cart-checkout-cta" to="/checkout">
             Proceed to checkout
           </Link>
-          <Link className="btn btn-secondary cart-continue" to="/#catalog">
+          <Link className="btn btn-secondary cart-continue" to="/shop">
             Continue shopping
           </Link>
         </aside>

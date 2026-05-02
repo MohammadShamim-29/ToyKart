@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ShieldCheck, Sparkles, Star, Truck } from "lucide-react";
 import api from "../api";
 import { categoryLabel } from "../utils/categoryLabel";
+import { useDispatch, useSelector } from "react-redux";
+import { addToCartAjax } from "../app/addToCartAjax";
 
 const currency = new Intl.NumberFormat("en-BD", {
   style: "currency",
@@ -66,6 +68,10 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeSlide, setActiveSlide] = useState(0);
+  const [addingId, setAddingId] = useState("");
+  const [addedId, setAddedId] = useState("");
+  const { userInfo } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -117,12 +123,20 @@ const HomePage = () => {
               <h1 className="hero-opal-title">{currentSlide.title}</h1>
               <p className="hero-opal-copy">{currentSlide.subtitle}</p>
               <div className="hero-actions hero-actions-opal">
-                <a className="btn btn-primary" href="#catalog">
-                  Shop Signature <ArrowRight size={15} />
-                </a>
-                <Link className="btn btn-secondary" to="/register">
-                  Become a Member
-                </Link>
+                {userInfo ? (
+                  <Link className="btn btn-primary" to="/shop">
+                    Shop Collection <ArrowRight size={15} />
+                  </Link>
+                ) : (
+                  <>
+                    <Link className="btn btn-primary" to="/login">
+                      Login to Shop <ArrowRight size={15} />
+                    </Link>
+                    <Link className="btn btn-secondary" to="/register">
+                      Register Now
+                    </Link>
+                  </>
+                )}
               </div>
               <ul className="hero-opal-points">
                 <li>Premium picks across Bangladesh</li>
@@ -210,15 +224,33 @@ const HomePage = () => {
                     <span className="price">{currency.format(product.price)}</span>
                     <span className="stock">Age {product.ageGroup}</span>
                   </div>
-                  <div className="product-card-opal-foot">
-                    <span className="product-card-opal-rating">
-                      <Star size={14} /> Premium Pick
-                    </span>
-                    <span className="stock">Stock: {product.countInStock}</span>
+                  <div className="product-card-opal-foot" style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className={`btn btn-primary ${addedId === product._id ? "cart-btn-added" : ""}`}
+                      style={{ flex: 1 }}
+                      disabled={!product.countInStock || addingId === product._id}
+                      onClick={async () => {
+                        setAddingId(product._id);
+                        try {
+                          await addToCartAjax({ dispatch, product, quantity: 1 });
+                          setAddedId(product._id);
+                          window.setTimeout(() => {
+                            setAddedId((prev) => (prev === product._id ? "" : prev));
+                          }, 900);
+                        } catch {
+                          // keep card quiet on failure
+                        } finally {
+                          setAddingId((prev) => (prev === product._id ? "" : prev));
+                        }
+                      }}
+                    >
+                      {addingId === product._id ? "Adding..." : addedId === product._id ? "Added" : "Add to cart"}
+                    </button>
+                    <Link className="btn btn-secondary" to={`/product/${product._id}`} style={{ flex: 1 }}>
+                      Details
+                    </Link>
                   </div>
-                  <Link className="btn btn-secondary" to={`/product/${product._id}`}>
-                    View Product
-                  </Link>
                 </div>
               </article>
             ))}

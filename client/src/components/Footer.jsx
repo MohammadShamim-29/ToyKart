@@ -31,16 +31,16 @@ const Footer = () => {
           <h3>Collections</h3>
           <ul>
             <li>
-              <a href="#catalog">Signature Learning</a>
+              <Link to="/shop">Signature Learning</Link>
             </li>
             <li>
-              <a href="#catalog">STEM Atelier</a>
+              <Link to="/shop">STEM Atelier</Link>
             </li>
             <li>
-              <a href="#catalog">Creative Studio</a>
+              <Link to="/shop">Creative Studio</Link>
             </li>
             <li>
-              <a href="#catalog">Outdoor Editions</a>
+              <Link to="/shop">Outdoor Editions</Link>
             </li>
           </ul>
         </div>

@@ -33,6 +33,8 @@ import {
 } from "react-admin";
 import api from "../../api";
 import { AdminFormPageLayout, AdminFormSection } from "../components/AdminFormChrome";
+import { generateReceipt } from "../../utils/generateReceipt";
+import { FileDown } from "lucide-react";
 
 const statusChoices = [
   { id: "pending", name: "Pending" },
@@ -183,6 +185,15 @@ const OrderFormAside = () => {
             }
           >
             Cancel Order
+          </Button>
+          <Button
+            variant="outlined"
+            color="info"
+            size="small"
+            startIcon={<FileDown size={16} />}
+            onClick={() => generateReceipt(record)}
+          >
+            Download Receipt (PDF)
           </Button>
           <Button
             variant="outlined"
