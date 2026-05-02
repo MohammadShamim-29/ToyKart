@@ -29,17 +29,17 @@ const Header = () => {
         <div className="container top-header-inner">
           <div className="top-left">
             <span>
-              <MapPin size={14} /> Nationwide Delivery in Bangladesh
+              <MapPin size={14} /> Delivery across Bangladesh
             </span>
             <span>
-              <Headset size={14} /> Hotline: +880 1700-123456
+              <Headset size={14} /> Helpline: +880 1700-123456
             </span>
           </div>
           <div className="top-right">
             <Link to="/orders">Track Order</Link>
-            <a href="#catalog">Daily Deals</a>
+            <a href="#catalog">New Drops</a>
             <span>
-              EN <ChevronDown size={13} />
+              BDT <ChevronDown size={13} />
             </span>
           </div>
         </div>
@@ -50,7 +50,7 @@ const Header = () => {
           <Logo />
 
           <form className="header-search" role="search" onSubmit={(e) => e.preventDefault()}>
-            <input type="search" placeholder="Search toys, categories, brands..." aria-label="Search toys" />
+            <input type="search" placeholder="Search toys, brands, categories..." aria-label="Search toys" />
             <button type="submit" aria-label="Search">
               <Search size={16} />
             </button>

@@ -11,7 +11,7 @@ const Footer = () => {
             <Logo compact />
           </div>
           <p>
-            ToyKart brings curated toys for playful learning, creative discovery, and better everyday family moments.
+            ToyKart curates thoughtful toys for playful learning and calm, happy family moments.
           </p>
           <div className="socials">
             <a href="#" aria-label="Facebook">
@@ -30,16 +30,16 @@ const Footer = () => {
           <h3>Shop</h3>
           <ul>
             <li>
-              <a href="#catalog">Educational Toys</a>
+              <a href="#catalog">Learning Toys</a>
             </li>
             <li>
-              <a href="#catalog">STEM Toys</a>
+              <a href="#catalog">STEM Picks</a>
             </li>
             <li>
-              <a href="#catalog">Pretend Play</a>
+              <a href="#catalog">Creative Play</a>
             </li>
             <li>
-              <a href="#catalog">Outdoor Toys</a>
+              <a href="#catalog">Outdoor Fun</a>
             </li>
           </ul>
         </div>
@@ -79,7 +79,7 @@ const Footer = () => {
       <div className="footer-bottom">
         <div className="container footer-bottom-inner">
           <p>© {new Date().getFullYear()} ToyKart. All rights reserved.</p>
-          <p>Secure payments · Trusted delivery · Happy kids</p>
+          <p>Secure checkout · Nationwide delivery · Family-first service</p>
         </div>
       </div>
     </footer>
