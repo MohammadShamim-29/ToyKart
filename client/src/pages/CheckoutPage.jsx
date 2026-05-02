@@ -231,7 +231,10 @@ const CheckoutPage = () => {
 
       <form onSubmit={onSubmit} className="checkout-layout">
         <div className="checkout-form card stack-md form">
-          <h2>Billing & shipping details</h2>
+          <div className="checkout-block-head">
+            <h2>Billing & shipping details</h2>
+            <p>Complete your delivery info and we will confirm your order instantly.</p>
+          </div>
           <label>
             First name
             <input
@@ -335,37 +338,6 @@ const CheckoutPage = () => {
               placeholder="Any delivery instructions or notes for our team"
             />
           </label>
-          <fieldset className="stack-sm">
-            <legend>Payment method</legend>
-            <label>
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="CashOnDelivery"
-                checked={paymentMethod === "CashOnDelivery"}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              />
-              Cash on Delivery
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="SSLCommerz"
-                checked={paymentMethod === "SSLCommerz"}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              />
-              SSLCommerz (Online Payment)
-            </label>
-          </fieldset>
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={submitting || loadingLocations || Boolean(locationError) || countryOptions.length === 0}
-          >
-            {submitting ? "Placing order…" : "Place order"}
-          </button>
           <Link className="btn btn-secondary" to="/cart">
             Back to cart
           </Link>
@@ -401,7 +373,39 @@ const CheckoutPage = () => {
               <dd>{formatBdt(totalPrice)}</dd>
             </div>
           </dl>
-          <p className="subtext">Payment: Cash on delivery</p>
+          <fieldset className="stack-sm checkout-payment-methods checkout-payment-side">
+            <legend>Payment method</legend>
+            <label>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="CashOnDelivery"
+                checked={paymentMethod === "CashOnDelivery"}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              />
+              Cash on Delivery
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="SSLCommerz"
+                checked={paymentMethod === "SSLCommerz"}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              />
+              SSLCommerz (Online Payment)
+            </label>
+          </fieldset>
+          <button
+            type="submit"
+            className="btn btn-primary checkout-place-order"
+            disabled={submitting || loadingLocations || Boolean(locationError) || countryOptions.length === 0}
+          >
+            {submitting ? "Placing order…" : "Place order"}
+          </button>
+          <p className="subtext">
+            Payment: {paymentMethod === "SSLCommerz" ? "SSLCommerz (Online Payment)" : "Cash on Delivery"}
+          </p>
         </aside>
       </form>
     </section>

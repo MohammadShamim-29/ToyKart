@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import api from "../api";
-import { addItem } from "../app/cartSlice";
+import { addToCartAjax } from "../app/addToCartAjax";
 import { categoryLabel } from "../utils/categoryLabel";
 
 const currency = new Intl.NumberFormat("en-BD", {
@@ -16,6 +16,8 @@ const NewArrivalsPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [addingId, setAddingId] = useState("");
+  const [addedId, setAddedId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -94,11 +96,24 @@ const NewArrivalsPage = () => {
                 <div className="product-card-actions">
                   <button
                     type="button"
-                    className="btn btn-primary"
-                    disabled={!product.countInStock}
-                    onClick={() => dispatch(addItem({ product, quantity: 1 }))}
+                    className={`btn btn-primary ${addedId === product._id ? "cart-btn-added" : ""}`}
+                    disabled={!product.countInStock || addingId === product._id}
+                    onClick={async () => {
+                      setAddingId(product._id);
+                      try {
+                        await addToCartAjax({ dispatch, product, quantity: 1 });
+                        setAddedId(product._id);
+                        window.setTimeout(() => {
+                          setAddedId((prev) => (prev === product._id ? "" : prev));
+                        }, 900);
+                      } catch {
+                        // keep card quiet on failure
+                      } finally {
+                        setAddingId((prev) => (prev === product._id ? "" : prev));
+                      }
+                    }}
                   >
-                    Add to cart
+                    {addingId === product._id ? "Adding..." : addedId === product._id ? "Added" : "Add to cart"}
                   </button>
                   <Link className="btn btn-secondary" to={`/product/${product._id}`}>
                     View Details

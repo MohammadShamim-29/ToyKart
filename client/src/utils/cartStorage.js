@@ -11,12 +11,13 @@ const readJson = (key, fallback) => {
 };
 
 export const normalizeCartLine = (line) => {
-  if (!line || !line.productId) return null;
+  const productId = line?.productId || line?._id || line?.id;
+  if (!line || !productId) return null;
   const qty = Math.max(1, Number(line.qty) || 1);
   const countRaw = line.countInStock;
   const countInStock = countRaw != null ? Math.max(0, Number(countRaw)) : Number.POSITIVE_INFINITY;
   return {
-    productId: line.productId,
+    productId,
     name: line.name ?? "",
     image: line.image ?? "",
     price: Number(line.price) || 0,

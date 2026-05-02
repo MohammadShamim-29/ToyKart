@@ -1,14 +1,32 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import clsx from "clsx";
 import { ChevronDown, Heart, MapPin, Search, ShoppingBag, UserRound } from "lucide-react";
 import { logout } from "../app/store";
+import { selectCartItemCount } from "../app/cartSlice";
 import Logo from "./Logo";
 
 const Header = () => {
   const { userInfo } = useSelector((state) => state.auth);
+  const cartCount = useSelector(selectCartItemCount);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [cartPulse, setCartPulse] = useState(false);
+  const pulseTimer = useRef(null);
+
+  useEffect(() => {
+    const onCartAdded = () => {
+      setCartPulse(true);
+      if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+      pulseTimer.current = window.setTimeout(() => setCartPulse(false), 560);
+    };
+    window.addEventListener("toykart:cart-added", onCartAdded);
+    return () => {
+      window.removeEventListener("toykart:cart-added", onCartAdded);
+      if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+    };
+  }, []);
 
   const onLogout = () => {
     dispatch(logout());
@@ -50,8 +68,11 @@ const Header = () => {
               <Heart size={17} />
               <span>Wishlist</span>
             </Link>
-            <Link className="tool-item" to="/orders">
-              <ShoppingBag size={17} />
+            <Link className={clsx("tool-item cart-tool", cartPulse && "is-pulsing")} to="/cart">
+              <span className="cart-tool-icon-wrap">
+                <ShoppingBag size={17} />
+                {cartCount > 0 ? <span className="cart-count-badge">{cartCount}</span> : null}
+              </span>
               <span>Cart</span>
             </Link>
             {userInfo ? (

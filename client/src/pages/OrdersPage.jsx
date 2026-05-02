@@ -32,11 +32,11 @@ const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [returnRequests, setReturnRequests] = useState([]);
   const [error, setError] = useState("");
-  const [openTrack, setOpenTrack] = useState({});
   const [deletingId, setDeletingId] = useState("");
   const [cancellingId, setCancellingId] = useState("");
   const [requestingId, setRequestingId] = useState("");
   const [returnModalOrderId, setReturnModalOrderId] = useState("");
+  const [actionModalOrderId, setActionModalOrderId] = useState("");
   const [returnReason, setReturnReason] = useState("");
   const [policyAccepted, setPolicyAccepted] = useState(false);
   const { userInfo } = useSelector((state) => state.auth);
@@ -68,11 +68,7 @@ const OrdersPage = () => {
       setDeletingId(orderId);
       await api.patch(`/orders/${orderId}/delete-history`);
       setOrders((prev) => prev.filter((o) => o._id !== orderId));
-      setOpenTrack((prev) => {
-        const next = { ...prev };
-        delete next[orderId];
-        return next;
-      });
+      if (actionModalOrderId === orderId) setActionModalOrderId("");
     } catch (err) {
       setError(err.response?.data?.message || "Could not remove order history.");
     } finally {
@@ -132,6 +128,11 @@ const OrdersPage = () => {
     setPolicyAccepted(false);
   };
 
+  const closeActionModal = () => {
+    if (cancellingId) return;
+    setActionModalOrderId("");
+  };
+
   const submitReturnModal = (e) => {
     e.preventDefault();
     if (!returnModalOrderId) return;
@@ -148,11 +149,15 @@ const OrdersPage = () => {
     if (!acc[orderId]) acc[orderId] = req;
     return acc;
   }, {});
+  const actionModalOrder = orders.find((order) => order._id === actionModalOrderId) || null;
 
   return (
-    <section className="stack-md">
+    <section className="stack-md orders-page">
       <div className="section-head">
         <h1>My Orders</h1>
+        <p className="subtext">
+          {orders.length} order{orders.length === 1 ? "" : "s"} in your history
+        </p>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -170,105 +175,137 @@ const OrdersPage = () => {
 
               return (
                 <>
-            <div className="order-card-head">
-              <h3>Order #{order._id.slice(-6).toUpperCase()}</h3>
-              <button
-                type="button"
-                className="order-delete-btn"
-                aria-label="Delete order history"
-                title="Delete order history"
-                disabled={deletingId === order._id}
-                onClick={() => onDeleteHistory(order._id)}
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-            <p>
-              <strong>Status:</strong>{" "}
-              <span className={`order-status-pill status-${String(order.status || "pending").toLowerCase()}`}>
-                {titleCaseStatus(order.status)}
-              </span>
-            </p>
-            <p>
-              <strong>Total:</strong> {currency.format(order.totalPrice || 0)}
-            </p>
-            <p>
-              <strong>Items:</strong> {order.orderItems.length}
-            </p>
-            <p>
-              <strong>Payment:</strong> {order.isPaid ? "Paid" : "Pending"}
-            </p>
-            <p>
-              <strong>Placed:</strong> {formatDateTime(order.createdAt)}
-            </p>
-            {latestRequestByOrderId[order._id] && (
-              <p>
-                <strong>Return Request:</strong>{" "}
-                <span className="order-return-status">
-                  {titleCaseStatus(latestRequestByOrderId[order._id].status || "requested")}
-                </span>
-              </p>
-            )}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={!canRequestReturn}
-              onClick={() => openReturnModal(order._id)}
-            >
-              {hasReturnRequest ? "Return Requested" : "Request Return/Refund"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={!canCancel || cancellingId === order._id}
-              onClick={() => onCancelOrder(order._id)}
-            >
-              {cancellingId === order._id ? "Cancelling..." : "Cancel Order"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setOpenTrack((prev) => ({ ...prev, [order._id]: !prev[order._id] }))}
-            >
-              {openTrack[order._id] ? "Hide Tracking" : "Track"}
-            </button>
-
-            {openTrack[order._id] && (
-              <div className="order-track-panel">
-                <p>
-                  <strong>Carrier:</strong> {order.fulfillment?.carrier || "Not assigned yet"}
-                </p>
-                <p>
-                  <strong>Tracking Number:</strong> {order.fulfillment?.trackingNumber || "Not assigned yet"}
-                </p>
-                <p>
-                  <strong>Shipped At:</strong> {formatDateTime(order.fulfillment?.shippedAt)}
-                </p>
-                <div className="order-track-timeline">
-                  <h4>Order Updates</h4>
-                  {Array.isArray(order.statusHistory) && order.statusHistory.length > 0 ? (
-                    <ul>
-                      {[...order.statusHistory].reverse().map((entry, idx) => (
-                        <li key={`${entry.changedAt || idx}-${entry.to || idx}`}>
-                          <p>
-                            <strong>{titleCaseStatus(entry.to)}</strong> • {formatDateTime(entry.changedAt)}
-                          </p>
-                          <p className="subtext">{entry.note || "Status updated"}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="subtext">No tracking updates yet.</p>
+                  <div className="order-card-head">
+                    <div>
+                      <h3>Order #{order._id.slice(-6).toUpperCase()}</h3>
+                      <p className="order-date">Placed {formatDateTime(order.createdAt)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="order-delete-btn"
+                      aria-label="Delete order history"
+                      title="Delete order history"
+                      disabled={deletingId === order._id}
+                      onClick={() => onDeleteHistory(order._id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <div className="order-meta-grid">
+                    <p>
+                      <strong>Status:</strong>{" "}
+                      <span className={`order-status-pill status-${String(order.status || "pending").toLowerCase()}`}>
+                        {titleCaseStatus(order.status)}
+                      </span>
+                    </p>
+                    <p>
+                      <strong>Payment:</strong> {order.isPaid ? "Paid" : "Pending"}
+                    </p>
+                    <p>
+                      <strong>Total:</strong> {currency.format(order.totalPrice || 0)}
+                    </p>
+                    <p>
+                      <strong>Items:</strong> {order.orderItems.length}
+                    </p>
+                  </div>
+                  {latestRequestByOrderId[order._id] && (
+                    <p className="order-return-row">
+                      <strong>Return Request:</strong>{" "}
+                      <span className="order-return-status">
+                        {titleCaseStatus(latestRequestByOrderId[order._id].status || "requested")}
+                      </span>
+                    </p>
                   )}
-                </div>
-              </div>
-            )}
+                  <div className="order-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setActionModalOrderId(order._id)}
+                    >
+                      Open Action Center
+                    </button>
+                  </div>
                 </>
               );
             })()}
           </article>
         ))}
       </div>
+
+      {actionModalOrder && (
+        <div className="return-modal-backdrop" role="presentation" onClick={closeActionModal}>
+          <div className="return-modal order-action-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            {(() => {
+              const orderStatus = String(actionModalOrder.status || "pending").toLowerCase();
+              const isDelivered = orderStatus === "delivered";
+              const canCancel = ["pending", "confirmed", "processing"].includes(orderStatus);
+              const hasReturnRequest = Boolean(latestRequestByOrderId[actionModalOrder._id]);
+              const canRequestReturn = isDelivered && !hasReturnRequest && requestingId !== actionModalOrder._id;
+              return (
+                <>
+                  <div className="return-modal-head">
+                    <h3>Order Action Center #{actionModalOrder._id.slice(-6).toUpperCase()}</h3>
+                    <button type="button" className="return-modal-close" onClick={closeActionModal} disabled={Boolean(cancellingId)}>
+                      x
+                    </button>
+                  </div>
+
+                  <div className="order-modal-action-row">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={!canRequestReturn}
+                      onClick={() => {
+                        setActionModalOrderId("");
+                        openReturnModal(actionModalOrder._id);
+                      }}
+                    >
+                      {hasReturnRequest ? "Return Requested" : "Request Return/Refund"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={!canCancel || cancellingId === actionModalOrder._id}
+                      onClick={() => onCancelOrder(actionModalOrder._id)}
+                    >
+                      {cancellingId === actionModalOrder._id ? "Cancelling..." : "Cancel Order"}
+                    </button>
+                  </div>
+
+                  <div className="order-track-panel">
+                    <p>
+                      <strong>Carrier:</strong> {actionModalOrder.fulfillment?.carrier || "Not assigned yet"}
+                    </p>
+                    <p>
+                      <strong>Tracking Number:</strong> {actionModalOrder.fulfillment?.trackingNumber || "Not assigned yet"}
+                    </p>
+                    <p>
+                      <strong>Shipped At:</strong> {formatDateTime(actionModalOrder.fulfillment?.shippedAt)}
+                    </p>
+                    <div className="order-track-timeline">
+                      <h4>Order Updates</h4>
+                      {Array.isArray(actionModalOrder.statusHistory) && actionModalOrder.statusHistory.length > 0 ? (
+                        <ul>
+                          {[...actionModalOrder.statusHistory].reverse().map((entry, idx) => (
+                            <li key={`${entry.changedAt || idx}-${entry.to || idx}`}>
+                              <p>
+                                <strong>{titleCaseStatus(entry.to)}</strong> • {formatDateTime(entry.changedAt)}
+                              </p>
+                              <p className="subtext">{entry.note || "Status updated"}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="subtext">No tracking updates yet.</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {returnModalOrderId && (
         <div className="return-modal-backdrop" role="presentation" onClick={closeReturnModal}>

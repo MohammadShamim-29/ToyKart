@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import clsx from "clsx";
 import { GitCompare, Heart, ShoppingCart } from "lucide-react";
-import { addItem } from "../../app/cartSlice";
+import { addToCartAjax } from "../../app/addToCartAjax";
 
 const WISH_KEY = "toykart-wishlist-v1";
 const CMP_KEY = "toykart-compare-v1";
@@ -27,6 +27,8 @@ const ProductPurchaseActions = ({ product, inStock }) => {
   const [wish, setWish] = useState(false);
   const [cmp, setCmp] = useState(false);
   const [cartMsg, setCartMsg] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
   const toastTimer = useRef(null);
 
   const id = product?._id;
@@ -78,13 +80,25 @@ const ProductPurchaseActions = ({ product, inStock }) => {
     setCmp(set.has(id));
   };
 
-  const addCart = () => {
+  const addCart = async () => {
     if (!inStock || !product) return;
+    if (isAdding) return;
     const safeQty = Math.min(Math.max(1, qty), maxQty);
-    dispatch(addItem({ product, quantity: safeQty }));
-    setCartMsg("Added to cart");
-    if (toastTimer.current) window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setCartMsg(""), 2200);
+    setIsAdding(true);
+    try {
+      await addToCartAjax({ dispatch, product, quantity: safeQty });
+      setCartMsg("Added to cart");
+      setIsAdded(true);
+      window.setTimeout(() => setIsAdded(false), 900);
+      if (toastTimer.current) window.clearTimeout(toastTimer.current);
+      toastTimer.current = window.setTimeout(() => setCartMsg(""), 2200);
+    } catch (err) {
+      setCartMsg(err.response?.data?.message || err.message || "Could not add to cart");
+      if (toastTimer.current) window.clearTimeout(toastTimer.current);
+      toastTimer.current = window.setTimeout(() => setCartMsg(""), 2600);
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
@@ -105,9 +119,14 @@ const ProductPurchaseActions = ({ product, inStock }) => {
         />
       </div>
       <div className="pd-cta-row">
-        <button type="button" className="btn btn-primary pd-add-cart" disabled={!inStock} onClick={addCart}>
+        <button
+          type="button"
+          className={clsx("btn btn-primary pd-add-cart", isAdded && "cart-btn-added")}
+          disabled={!inStock || isAdding}
+          onClick={addCart}
+        >
           <ShoppingCart size={20} />
-          Add to cart
+          {isAdding ? "Adding..." : isAdded ? "Added" : "Add to cart"}
         </button>
         <button
           type="button"
