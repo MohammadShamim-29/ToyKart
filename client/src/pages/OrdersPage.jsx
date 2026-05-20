@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Trash2, FileDown } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Trash2, FileDown, Upload } from "lucide-react";
 import api from "../api";
 import { generateReceipt } from "../utils/generateReceipt";
 
@@ -29,25 +30,61 @@ const titleCaseStatus = (status) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
+const ORDER_STATUS_CONFIG = {
+  pending: { label: "Pending", color: "#d97706", bg: "#fef3c7" },
+  confirmed: { label: "Confirmed", color: "#2563eb", bg: "#dbeafe" },
+  processing: { label: "Processing", color: "#7c3aed", bg: "#ede9fe" },
+  shipped: { label: "Shipped", color: "#0891b2", bg: "#cffafe" },
+  delivered: { label: "Delivered", color: "#059669", bg: "#d1fae5" },
+  cancelled: { label: "Cancelled", color: "#dc2626", bg: "#fee2e2" },
+  returned: { label: "Returned", color: "#d97706", bg: "#fef3c7" },
+  refunded: { label: "Refunded", color: "#0891b2", bg: "#cffafe" }
+};
+
+const OrderStatusBadge = ({ status }) => {
+  const s = String(status || "pending").toLowerCase();
+  const cfg = ORDER_STATUS_CONFIG[s] || { label: titleCaseStatus(status), color: "#6b7280", bg: "#f3f4f6" };
+  return (
+    <span style={{
+      display: "inline-block",
+      padding: "4px 12px",
+      borderRadius: "999px",
+      fontSize: "0.8rem",
+      fontWeight: 600,
+      color: cfg.color,
+      background: cfg.bg,
+      whiteSpace: "nowrap"
+    }}>
+      {cfg.label}
+    </span>
+  );
+};
+
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [returnRequests, setReturnRequests] = useState([]);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [deletingId, setDeletingId] = useState("");
   const [cancellingId, setCancellingId] = useState("");
   const [requestingId, setRequestingId] = useState("");
-  
+
   const [returnModalOrderId, setReturnModalOrderId] = useState("");
   const [cancelModalOrderId, setCancelModalOrderId] = useState("");
   const [actionModalOrderId, setActionModalOrderId] = useState("");
-  
+
   const [returnReason, setReturnReason] = useState("");
+  const [returnDescription, setReturnDescription] = useState("");
+  const [returnRefundMethod, setReturnRefundMethod] = useState("OriginalPaymentMethod");
+  const [returnAccountInfo, setReturnAccountInfo] = useState("");
+  const [returnFiles, setReturnFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  
+
   const [policyAccepted, setPolicyAccepted] = useState(false);
   const [cancelPolicyAccepted, setCancelPolicyAccepted] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
-  
+
   const { userInfo } = useSelector((state) => state.auth);
 
   useEffect(() => {
@@ -85,24 +122,56 @@ const OrdersPage = () => {
     }
   };
 
-  const onRequestReturn = async (orderId, reasonText) => {
-    const reason = String(reasonText || "").trim();
+  const uploadReturnFiles = async () => {
+    if (returnFiles.length === 0) return [];
+    const urls = [];
+    for (const file of returnFiles) {
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        const { data } = await api.post("/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+        urls.push(data.url);
+      } catch {
+        // skip failed uploads
+      }
+    }
+    return urls;
+  };
+
+  const onRequestReturn = async (orderId) => {
+    const reason = String(returnReason || "").trim();
     if (!reason) return;
     try {
       setRequestingId(orderId);
+      if (returnFiles.length > 0) setUploading(true);
+      const evidence = await uploadReturnFiles();
+      setUploading(false);
       const { data } = await api.post("/returns", {
         orderId,
         requestType: "return_refund",
-        customerReason: reason
+        customerReason: reason,
+        description: returnDescription.trim(),
+        refundMethod: returnRefundMethod,
+        refundAccountInfo: returnAccountInfo.trim(),
+        evidenceAttachments: evidence
       });
       setReturnRequests((prev) => [data, ...prev]);
       setReturnModalOrderId("");
       setReturnReason("");
+      setReturnDescription("");
+      setReturnRefundMethod("OriginalPaymentMethod");
+      setReturnAccountInfo("");
+      setReturnFiles([]);
       setPolicyAccepted(false);
+      setSuccessMsg("Your return request has been submitted successfully! We will review it shortly.");
+      setTimeout(() => setSuccessMsg(""), 6000);
     } catch (err) {
       setError(err.response?.data?.message || "Could not submit return request.");
     } finally {
       setRequestingId("");
+      setUploading(false);
     }
   };
 
@@ -125,8 +194,13 @@ const OrdersPage = () => {
 
   const openReturnModal = (orderId) => {
     setError("");
+    setSuccessMsg("");
     setReturnModalOrderId(orderId);
     setReturnReason("");
+    setReturnDescription("");
+    setReturnRefundMethod("OriginalPaymentMethod");
+    setReturnAccountInfo("");
+    setReturnFiles([]);
     setPolicyAccepted(false);
   };
 
@@ -141,7 +215,12 @@ const OrdersPage = () => {
     if (requestingId) return;
     setReturnModalOrderId("");
     setReturnReason("");
+    setReturnDescription("");
+    setReturnRefundMethod("OriginalPaymentMethod");
+    setReturnAccountInfo("");
+    setReturnFiles([]);
     setPolicyAccepted(false);
+    setSuccessMsg("");
   };
 
   const closeCancelModal = () => {
@@ -163,7 +242,7 @@ const OrdersPage = () => {
       setError("Please accept the return policy before submitting.");
       return;
     }
-    onRequestReturn(returnModalOrderId, returnReason);
+    onRequestReturn(returnModalOrderId);
   };
 
   const submitCancelModal = (e) => {
@@ -194,14 +273,14 @@ const OrdersPage = () => {
         </p>
       </div>
 
+      {successMsg && <p className="success">{successMsg}</p>}
       {error && <p className="error">{error}</p>}
-      {!error && orders.length === 0 && <p className="notice">No orders yet.</p>}
+      {!error && !successMsg && orders.length === 0 && <p className="notice">No orders yet.</p>}
 
       <div className="orders-grid">
         {orders.map((order) => (
           <article className="card order-card" key={order._id}>
             {(() => {
-              const orderStatus = String(order.status || "pending").toLowerCase();
               return (
                 <>
                   <div className="order-card-head">
@@ -223,9 +302,7 @@ const OrdersPage = () => {
                   <div className="order-meta-grid">
                     <p>
                       <strong>Status:</strong>{" "}
-                      <span className={`order-status-pill status-${orderStatus}`}>
-                        {titleCaseStatus(order.status)}
-                      </span>
+                      <OrderStatusBadge status={order.status} />
                     </p>
                     <p>
                       <strong>Payment:</strong> {order.isPaid ? "Paid" : "Pending"}
@@ -238,12 +315,16 @@ const OrdersPage = () => {
                     </p>
                   </div>
                   {latestRequestByOrderId[order._id] && (
-                    <p className="order-return-row">
+                    <Link
+                      to={`/returns/${latestRequestByOrderId[order._id]._id}`}
+                      className="order-return-row"
+                      style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                    >
                       <strong>Return Request:</strong>{" "}
                       <span className="order-return-status">
                         {titleCaseStatus(latestRequestByOrderId[order._id].status || "requested")}
                       </span>
-                    </p>
+                    </Link>
                   )}
                   <div className="order-actions" style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
                     <button
@@ -280,7 +361,7 @@ const OrdersPage = () => {
               const canCancel = ["pending", "confirmed", "processing"].includes(orderStatus);
               const hasReturnRequest = Boolean(latestRequestByOrderId[actionModalOrder._id]);
               const canRequestReturn = isDelivered && !hasReturnRequest && requestingId !== actionModalOrder._id;
-              
+
               return (
                 <>
                   <div className="return-modal-head">
@@ -293,16 +374,35 @@ const OrdersPage = () => {
                     </button>
                   </div>
 
-                  <div className="order-tracking-summary">
-                    <div className="tracking-status-badge">
-                      <span className={`order-status-pill status-${orderStatus} large`}>
-                        {titleCaseStatus(actionModalOrder.status)}
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    flexWrap: "wrap",
+                    padding: "1rem 0 0.75rem",
+                    borderBottom: "1px solid var(--line)"
+                  }}>
+                    <OrderStatusBadge status={actionModalOrder.status} />
+                    {actionModalOrder.isPaid && (
+                      <span style={{
+                        display: "inline-block",
+                        padding: "4px 12px",
+                        borderRadius: "999px",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        color: "#059669",
+                        background: "#d1fae5",
+                        whiteSpace: "nowrap"
+                      }}>
+                        Paid
                       </span>
-                      {actionModalOrder.isPaid && <span className="payment-badge paid">Paid</span>}
-                    </div>
+                    )}
+                    <span style={{ marginLeft: "auto", fontSize: "0.82rem", color: "#6b7280" }}>
+                      {currency.format(actionModalOrder.totalPrice || 0)}
+                    </span>
                   </div>
 
-                  <div className="order-modal-action-row" style={{ marginTop: '1.5rem', borderBottom: '1px solid var(--line)', paddingBottom: '1.5rem' }}>
+                  <div className="order-modal-action-row" style={{ marginTop: '1.25rem', paddingBottom: '1.25rem', borderBottom: '1px solid var(--line)' }}>
                     <button
                       type="button"
                       className="btn btn-secondary"
@@ -329,41 +429,118 @@ const OrdersPage = () => {
                     </button>
                   </div>
 
-                  <div className="order-details-grid" style={{ marginTop: '1.5rem' }}>
-                    <div className="info-item">
-                      <label>Shipping Method</label>
-                      <p>{actionModalOrder.fulfillment?.carrier || "Standard Shipping"}</p>
+                  <div style={{
+                    marginTop: "1.25rem",
+                    background: "var(--surface-soft)",
+                    borderRadius: "12px",
+                    padding: "1rem 1.25rem",
+                    border: "1px solid var(--line)"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#6b7280" }}>
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <line x1="3" y1="9" x2="21" y2="9" />
+                        <line x1="9" y1="21" x2="9" y2="9" />
+                      </svg>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#374151" }}>Shipping & Fulfillment</span>
                     </div>
-                    <div className="info-item">
-                      <label>Tracking Code</label>
-                      <p className="tracking-number">{actionModalOrder.fulfillment?.trackingNumber || "Assigning soon"}</p>
-                    </div>
-                  </div>
-
-                  <div className="order-timeline-container">
-                    <h4>Timeline & Updates</h4>
-                    <div className="modern-timeline">
-                      {Array.isArray(actionModalOrder.statusHistory) && actionModalOrder.statusHistory.length > 0 ? (
-                        <div className="timeline-items">
-                          {[...actionModalOrder.statusHistory].reverse().map((entry, idx) => (
-                            <div className="timeline-item" key={`${entry.changedAt || idx}-${entry.to || idx}`}>
-                              <div className="timeline-dot"></div>
-                              <div className="timeline-content">
-                                <div className="timeline-header">
-                                  <strong>{titleCaseStatus(entry.to)}</strong>
-                                  <span className="timeline-date">{formatDateTime(entry.changedAt)}</span>
-                                </div>
-                                <p className="timeline-note">{entry.note || "Order state change"}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="timeline-empty">
-                          <p>Order is being prepared for shipment.</p>
+                    <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+                      <div style={{ flex: "1 1 160px" }}>
+                        <span style={{ display: "block", fontSize: "0.75rem", color: "#9ca3af", marginBottom: "0.2rem" }}>Method</span>
+                        <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>
+                          {actionModalOrder.fulfillment?.carrier || "Standard Shipping"}
+                        </span>
+                      </div>
+                      <div style={{ flex: "1 1 160px" }}>
+                        <span style={{ display: "block", fontSize: "0.75rem", color: "#9ca3af", marginBottom: "0.2rem" }}>Tracking</span>
+                        {actionModalOrder.fulfillment?.trackingNumber ? (
+                          <span style={{
+                            fontSize: "0.9rem",
+                            fontWeight: 600,
+                            color: "#2563eb",
+                            fontFamily: "monospace"
+                          }}>
+                            {actionModalOrder.fulfillment.trackingNumber}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: "0.85rem", color: "#9ca3af", fontStyle: "italic" }}>
+                            Assigning soon
+                          </span>
+                        )}
+                      </div>
+                      {actionModalOrder.fulfillment?.shippedAt && (
+                        <div style={{ flex: "1 1 160px" }}>
+                          <span style={{ display: "block", fontSize: "0.75rem", color: "#9ca3af", marginBottom: "0.2rem" }}>Shipped</span>
+                          <span style={{ fontSize: "0.85rem" }}>{formatDateTime(actionModalOrder.fulfillment.shippedAt)}</span>
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  <div style={{ marginTop: "1.5rem" }}>
+                    <h4 style={{ fontSize: "0.95rem", fontWeight: 600, margin: "0 0 0.75rem" }}>Timeline & Updates</h4>
+                    {Array.isArray(actionModalOrder.statusHistory) && actionModalOrder.statusHistory.length > 0 ? (
+                      <div style={{ position: "relative", paddingLeft: "1.5rem" }}>
+                        <div style={{
+                          position: "absolute",
+                          left: "7px",
+                          top: "10px",
+                          bottom: "10px",
+                          width: "2px",
+                          background: "#e5e7eb",
+                          borderRadius: "1px"
+                        }} />
+                        {[...actionModalOrder.statusHistory].reverse().map((entry, idx) => {
+                          const s = String(entry.to || "").toLowerCase();
+                          const cfg = ORDER_STATUS_CONFIG[s] || { color: "#6b7280", bg: "#f3f4f6" };
+                          const isLast = idx === 0;
+                          return (
+                            <div key={`${entry.changedAt || idx}-${entry.to || idx}`} style={{ position: "relative", paddingBottom: idx < actionModalOrder.statusHistory.length - 1 ? "1rem" : 0 }}>
+                              <div style={{
+                                position: "absolute",
+                                left: "-1.5rem",
+                                top: "6px",
+                                width: "14px",
+                                height: "14px",
+                                borderRadius: "50%",
+                                background: isLast ? cfg.color : cfg.bg,
+                                border: `2.5px solid ${cfg.color}`,
+                                zIndex: 1,
+                                boxSizing: "border-box"
+                              }} />
+                              <div style={{ marginLeft: "0.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                                  <span style={{
+                                    display: "inline-block",
+                                    padding: "2px 10px",
+                                    borderRadius: "999px",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    color: cfg.color,
+                                    background: cfg.bg,
+                                    whiteSpace: "nowrap"
+                                  }}>
+                                    {titleCaseStatus(entry.to)}
+                                  </span>
+                                  {entry.changedAt && (
+                                    <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
+                                      {formatDateTime(entry.changedAt)}
+                                    </span>
+                                  )}
+                                </div>
+                                <p style={{ margin: "0.25rem 0 0", fontSize: "0.82rem", color: "#6b7280" }}>
+                                  {entry.note || "Order state change"}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: "0.85rem", color: "#9ca3af", fontStyle: "italic" }}>
+                        Order is being prepared for shipment.
+                      </p>
+                    )}
                   </div>
                 </>
               );
@@ -374,9 +551,9 @@ const OrdersPage = () => {
 
       {returnModalOrderId && (
         <div className="return-modal-backdrop" role="presentation" onClick={closeReturnModal}>
-          <div className="return-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+          <div className="return-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "580px" }}>
             <div className="return-modal-head">
-              <h3>রিটার্ন বা রিফান্ড রিকোয়েস্ট</h3>
+              <h3>Return / Refund Request</h3>
               <button type="button" className="return-modal-close" onClick={closeReturnModal} disabled={Boolean(requestingId)}>
                 x
               </button>
@@ -384,24 +561,90 @@ const OrdersPage = () => {
 
             <form className="return-modal-form" onSubmit={submitReturnModal}>
               <label>
-                সমস্যার বিবরণ (কারণ)
+                Reason for Return *
                 <textarea
                   value={returnReason}
                   onChange={(e) => setReturnReason(e.target.value)}
-                  placeholder="যেমন: পণ্যটি ড্যামেজড এসেছে / ভুল পণ্য পেয়েছি / কোয়ালিটি সমস্যা"
+                  placeholder="e.g. Product is damaged / Wrong item received / Quality issue"
                   minLength={10}
                   required
+                  style={{ minHeight: "70px" }}
                 />
               </label>
 
+              <label>
+                Detailed Description
+                <textarea
+                  value={returnDescription}
+                  onChange={(e) => setReturnDescription(e.target.value)}
+                  placeholder="Describe the issue in detail..."
+                  style={{ minHeight: "80px" }}
+                />
+              </label>
+
+              <label>
+                Preferred Refund Method
+                <select
+                  value={returnRefundMethod}
+                  onChange={(e) => setReturnRefundMethod(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "0.7rem 0.75rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--line, #d1d5db)",
+                    fontSize: "0.9rem",
+                    background: "white"
+                  }}
+                >
+                  <option value="OriginalPaymentMethod">Original Payment Method</option>
+                  <option value="BankTransfer">Bank Transfer</option>
+                  <option value="bKash">bKash</option>
+                  <option value="Nagad">Nagad</option>
+                </select>
+              </label>
+
+              <label>
+                Bank / MFS Account Information
+                <input
+                  type="text"
+                  value={returnAccountInfo}
+                  onChange={(e) => setReturnAccountInfo(e.target.value)}
+                  placeholder='e.g. bKash: 01XXXXXXXXX / Bank: Account name, number, routing'
+                  style={{
+                    width: "100%",
+                    padding: "0.7rem 0.75rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--line, #d1d5db)",
+                    fontSize: "0.9rem"
+                  }}
+                />
+              </label>
+
+              <label style={{ border: "2px dashed var(--line, #d1d5db)", borderRadius: "10px", padding: "1rem", textAlign: "center", cursor: "pointer" }}>
+                <Upload size={24} style={{ display: "block", margin: "0 auto 0.5rem", color: "#6b7280" }} />
+                <span style={{ color: "#6b7280", fontSize: "0.85rem" }}>Upload evidence (images/videos)</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={(e) => setReturnFiles(Array.from(e.target.files || []))}
+                  style={{ display: "none" }}
+                />
+                {returnFiles.length > 0 && (
+                  <span style={{ display: "block", marginTop: "0.5rem", fontSize: "0.8rem", color: "#059669" }}>
+                    {returnFiles.length} file{returnFiles.length > 1 ? "s" : ""} selected
+                  </span>
+                )}
+              </label>
+
               <div className="policy-link-row" style={{ marginBottom: '1rem' }}>
-                <button 
-                  type="button" 
-                  className="subtext-link" 
+                <button
+                  type="button"
+                  className="subtext-link"
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.9rem' }}
                   onClick={() => setShowPolicyModal(true)}
                 >
-                  পণ্য রিটার্ন বা রিফান্ড নীতিমালা দেখুন
+                  View Return & Refund Policy
                 </button>
               </div>
 
@@ -412,15 +655,15 @@ const OrdersPage = () => {
                   onChange={(e) => setPolicyAccepted(e.target.checked)}
                   required
                 />
-                আমি রিটার্ন নীতিমালা পড়েছি এবং শর্তাবলীতে সম্মত।
+                I have read and agree to the return policy.
               </label>
 
               <div className="return-modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={closeReturnModal} disabled={Boolean(requestingId)}>
-                  বাতিল
+                  Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={Boolean(requestingId)}>
-                  {requestingId ? "সাবমিট হচ্ছে..." : "রিকোয়েস্ট সাবমিট করুন"}
+                <button type="submit" className="btn btn-primary" disabled={Boolean(requestingId || uploading)}>
+                  {uploading ? "Uploading..." : requestingId ? "Submitting..." : "Submit Request"}
                 </button>
               </div>
             </form>
@@ -450,10 +693,10 @@ const OrdersPage = () => {
                 />
               </label>
 
-              <div className="policy-box" style={{ 
-                background: 'var(--surface-soft)', 
-                padding: '1rem', 
-                borderRadius: '12px', 
+              <div className="policy-box" style={{
+                background: 'var(--surface-soft)',
+                padding: '1rem',
+                borderRadius: '12px',
                 fontSize: '0.85rem',
                 margin: '1rem 0',
                 border: '1px solid var(--line)'
@@ -499,16 +742,35 @@ const OrdersPage = () => {
               </button>
             </div>
             <div className="return-policy-box" style={{ padding: '1rem', border: 'none', background: 'transparent' }}>
-              <ul style={{ paddingLeft: '1.2rem', margin: '0' }}>
-                <li style={{ marginBottom: '0.6rem' }}>ডেলিভারির পর সর্বোচ্চ ৭ দিনের মধ্যে রিটার্ন/রিফান্ড রিকোয়েস্ট করতে হবে।</li>
-                <li style={{ marginBottom: '0.6rem' }}>পণ্য অবশ্যই অরিজিনাল প্যাকেজিং, ট্যাগ এবং আনইউজড অবস্থায় থাকতে হবে।</li>
-                <li style={{ marginBottom: '0.6rem' }}>ড্যামেজড/ভুল পণ্য পেলে আনবক্সিংয়ের ছবি বা ভিডিও দিলে দ্রুত প্রসেস করা হবে।</li>
-                <li style={{ marginBottom: '0.6rem' }}>পর্যালোচনার পরে রিকোয়েস্ট অনুমোদন বা বাতিল করা হবে; প্রয়োজন হলে অতিরিক্ত তথ্য চাওয়া হতে পারে।</li>
-                <li style={{ marginBottom: '0.6rem' }}>অনুমোদিত হলে পিকআপ/রিটার্ন গ্রহণের পর রিফান্ড ৭-১০ কর্মদিবসের মধ্যে সম্পন্ন হতে পারে।</li>
-                <li style={{ marginBottom: '0.6rem' }}>COD অর্ডারের রিফান্ড ব্যাংক/মোবাইল ফাইন্যান্সিয়াল সার্ভিসে দেয়া হতে পারে।</li>
-                <li style={{ marginBottom: '0.6rem' }}>পণ্য রিটার্ন এপ্রুভ হলে পিকআপ চার্জ বা লজিস্টিক চার্জ (ডেলিভারি চার্জের সমপরিমাণ) টাকা কেটে রাখা হবে।</li>
-                <li style={{ marginBottom: '0.6rem' }}>কাস্টমার কর্তৃক ক্ষতিগ্রস্ত বা নন-রিটার্নেবল পণ্যে রিফান্ড প্রযোজ্য নাও হতে পারে।</li>
-              </ul>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <ul style={{ paddingLeft: '1.2rem', margin: '0' }}>
+                  <li style={{ marginBottom: '0.6rem' }}>ডেলিভারির পর সর্বোচ্চ ৭ দিনের মধ্যে রিটার্ন/রিফান্ড রিকোয়েস্ট করতে হবে।</li>
+                  <li style={{ marginBottom: '0.6rem' }}>পণ্য অবশ্যই অরিজিনাল প্যাকেজিং, ট্যাগ এবং আনইউজড অবস্থায় থাকতে হবে।</li>
+                  <li style={{ marginBottom: '0.6rem' }}>পণ্য আনবক্সিংয়ের সময় অবশ্যই ভিডিও ধারণ করে রাখতে হবে। রিটার্ন, রিফান্ড অথবা ক্ষতিগ্রস্ত/ভুল পণ্যের দাবির ক্ষেত্রে যথাযথ প্রমাণ যাচাই ও অনুসন্ধানের জন্য আনবক্সিং ভিডিও গুরুত্বপূর্ণ প্রমাণ হিসেবে বিবেচিত হবে। প্রয়োজনে দ্রুত সমাধান ও সঠিক সিদ্ধান্ত গ্রহণের জন্য গ্রাহককে আনবক্সিং ভিডিও প্রদান করতে হতে পারে।</li>
+                  <li style={{ marginBottom: '0.6rem' }}>পর্যালোচনার পরে রিকোয়েস্ট অনুমোদন বা বাতিল করা হবে; প্রয়োজন হলে অতিরিক্ত তথ্য চাওয়া হতে পারে।</li>
+                  <li style={{ marginBottom: '0.6rem' }}>COD অর্ডারের রিফান্ড ব্যাংক/মোবাইল ফাইন্যান্সিয়াল সার্ভিসে দেয়া হতে পারে।</li>
+                </ul>
+
+                <div style={{
+                  background: "#fff7ed",
+                  border: "1px solid #fed7aa",
+                  borderRadius: "10px",
+                  padding: "1rem 1.1rem",
+                  fontSize: "0.88rem",
+                  lineHeight: 1.7
+                }}>
+                  <p style={{ margin: "0 0 0.75rem", fontWeight: 600, color: "#c2410c" }}>লজিস্টিক ও রিফান্ড সংক্রান্ত নীতিমালা:</p>
+                  <p style={{ margin: "0 0 0.75rem", color: "#431407" }}>
+                    রিটার্ন/রিফান্ড রিকোয়েস্ট অনুমোদিত হলে পণ্য সংগ্রহ (পিকআপ) করার জন্য গ্রাহককে ডেলিভারি চার্জের সমপরিমাণ একটি পিকআপ চার্জ প্রদান করতে হবে।
+                  </p>
+                  <p style={{ margin: "0 0 0.75rem", color: "#065f46" }}>
+                    তবে যদি পর্যালোচনায় দেখা যায় যে পণ্যটি আমাদের পক্ষ থেকে ভুল, ত্রুটিপূর্ণ বা ক্ষতিগ্রস্ত অবস্থায় সরবরাহ করা হয়েছে, তাহলে গ্রাহককে কোনো অতিরিক্ত চার্জ প্রদান করতে হবে না। সে ক্ষেত্রে আমাদের প্রতিষ্ঠান নিজস্ব খরচে পণ্যটি প্রতিস্থাপন (Replacement) করে দেবে অথবা প্রযোজ্য ক্ষেত্রে সম্পূর্ণ অর্থ ফেরত প্রদান করবে। পুনরায় পণ্য পাঠানোর জন্যও গ্রাহকের কাছ থেকে কোনো ডেলিভারি চার্জ গ্রহণ করা হবে না।
+                  </p>
+                  <p style={{ margin: "0", color: "#431407" }}>
+                    অন্যদিকে, যদি তদন্তে প্রমাণিত হয় যে সমস্যাটি আমাদের পক্ষ থেকে হয়নি এবং পণ্যটি রিটার্ন নীতির শর্ত পূরণ না করে, তাহলে রিফান্ড অনুমোদিত হবে না। সে ক্ষেত্রে পণ্যটি পুনরায় গ্রাহকের কাছে ফেরত পাঠানো হবে এবং কোনো অর্থ ফেরত প্রদান করা হবে না।
+                  </p>
+                </div>
+              </div>
               <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
                 <button type="button" className="btn btn-primary" onClick={() => setShowPolicyModal(false)}>
                   ঠিক আছে

@@ -3,6 +3,15 @@ import api from "../api";
 /** Set VITE_ADMIN_DEBUG=true in `.env` (client) for dataProvider request/error logs in the browser console. */
 const adminDebug = import.meta.env.VITE_ADMIN_DEBUG === "true";
 
+const RESOURCE_MAP = {
+  "cancelled-orders": "orders"
+};
+
+const mapResource = (resource) => RESOURCE_MAP[resource] || resource;
+
+const isOrderResource = (resource) => ["orders", "cancelled-orders"].includes(resource);
+const isProductResource = (resource) => resource === "products";
+
 function debugLog(op, payload) {
   if (adminDebug) {
     console.debug(`[ToyKart admin dataProvider] ${op}`, payload);
@@ -57,6 +66,10 @@ function applyFilter(rows, filter) {
           .filter(Boolean);
         const haystack = JSON.stringify(row).toLowerCase();
         return terms.every((term) => haystack.includes(term));
+      }
+      // Handle reference fields (e.g. country is a populated object { _id, name })
+      if (row[key] && typeof row[key] === "object" && row[key]._id) {
+        return String(row[key]._id) === String(val);
       }
       return row[key] === val;
     })
@@ -229,10 +242,14 @@ function coerceRestId(id) {
 
 export const dataProvider = {
   getList: async (resource, params) => {
+    const query = buildListQuery(params);
+    if (resource === "cancelled-orders") {
+      query.status = "cancelled";
+    }
     const { data } = await withDebug(
       "getList",
       { resource, params },
-      api.get(`admin/${resource}`, { params: buildListQuery(params) })
+      api.get(`admin/${mapResource(resource)}`, { params: query })
     );
     let rows = Array.isArray(data) ? data : [];
     rows = applyFilter(rows, params.filter);
@@ -246,7 +263,7 @@ export const dataProvider = {
     const { data } = await withDebug(
       "getOne",
       { resource, id },
-      api.get(`admin/${resource}/${encodeURIComponent(id)}`)
+      api.get(`admin/${mapResource(resource)}/${encodeURIComponent(id)}`)
     );
     return { data: mapOneForForm(resource, data) };
   },
@@ -255,14 +272,14 @@ export const dataProvider = {
     const ids = [...new Set((params.ids || []).map(coerceRestId).filter(Boolean))];
     const results = await Promise.all(
       ids.map((id) =>
-        withDebug("getMany item", { resource, id }, api.get(`admin/${resource}/${encodeURIComponent(id)}`))
+        withDebug("getMany item", { resource, id }, api.get(`admin/${mapResource(resource)}/${encodeURIComponent(id)}`))
       )
     );
     return { data: results.map((r) => mapOneForForm(resource, r.data)) };
   },
 
   getManyReference: async (resource, params) => {
-    const { data } = await withDebug("getManyReference", { resource, params }, api.get(`admin/${resource}`));
+    const { data } = await withDebug("getManyReference", { resource, params }, api.get(`admin/${mapResource(resource)}`));
     let rows = Array.isArray(data) ? data : [];
     const id = coerceRestId(params.id);
     rows = rows.filter((row) => {
@@ -278,27 +295,27 @@ export const dataProvider = {
 
   create: async (resource, params) => {
     const body =
-      resource === "products"
+      isProductResource(resource)
         ? normalizeProductForApi(params.data)
-        : resource === "orders"
+        : isOrderResource(resource)
           ? normalizeOrderForApi(params.data)
           : stripIds(params.data);
-    const { data } = await withDebug("create", { resource }, api.post(`admin/${resource}`, body));
+    const { data } = await withDebug("create", { resource }, api.post(`admin/${mapResource(resource)}`, body));
     return { data: mapRecord(data) };
   },
 
   update: async (resource, params) => {
     const id = coerceRestId(params.id);
     const body =
-      resource === "products"
+      isProductResource(resource)
         ? normalizeProductForApi(params.data)
-        : resource === "orders"
+        : isOrderResource(resource)
           ? normalizeOrderForApi(params.data)
           : stripIds(params.data);
     const { data } = await withDebug(
       "update",
       { resource, id },
-      api.put(`admin/${resource}/${encodeURIComponent(id)}`, body)
+      api.put(`admin/${mapResource(resource)}/${encodeURIComponent(id)}`, body)
     );
     return { data: mapRecord(data) };
   },
@@ -306,14 +323,14 @@ export const dataProvider = {
   updateMany: async (resource, params) => {
     const ids = [...new Set((params.ids || []).map(coerceRestId).filter(Boolean))];
     const body =
-      resource === "products"
+      isProductResource(resource)
         ? normalizeProductForApi(params.data)
-        : resource === "orders"
+        : isOrderResource(resource)
           ? normalizeOrderForApi(params.data)
           : stripIds(params.data);
     await Promise.all(
       ids.map((id) =>
-        withDebug("updateMany", { resource, id }, api.put(`admin/${resource}/${encodeURIComponent(id)}`, body))
+        withDebug("updateMany", { resource, id }, api.put(`admin/${mapResource(resource)}/${encodeURIComponent(id)}`, body))
       )
     );
     return { data: ids };
@@ -324,7 +341,7 @@ export const dataProvider = {
     const { data } = await withDebug(
       "delete",
       { resource, id },
-      api.delete(`admin/${resource}/${encodeURIComponent(id)}`)
+      api.delete(`admin/${mapResource(resource)}/${encodeURIComponent(id)}`)
     );
     const record = unwrapDelete(data);
     return { data: mapRecord(record) };
@@ -334,7 +351,7 @@ export const dataProvider = {
     const ids = [...new Set((params.ids || []).map(coerceRestId).filter(Boolean))];
     await Promise.all(
       ids.map((id) =>
-        withDebug("deleteMany", { resource, id }, api.delete(`admin/${resource}/${encodeURIComponent(id)}`))
+        withDebug("deleteMany", { resource, id }, api.delete(`admin/${mapResource(resource)}/${encodeURIComponent(id)}`))
       )
     );
     return { data: ids };

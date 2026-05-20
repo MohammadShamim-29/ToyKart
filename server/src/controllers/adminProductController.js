@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import Order from "../models/Order.js";
 
 function coerceCategoryId(category) {
   if (category == null || category === "") return undefined;
@@ -87,7 +88,7 @@ async function assertCategoryUsable(categoryId, { requireActive } = { requireAct
 }
 
 export const listAdminProducts = async (req, res) => {
-  const products = await Product.find()
+  const products = await Product.find({ status: { $ne: "discontinued" } })
     .populate("category", "name slug isActive")
     .sort({ createdAt: -1 });
   return res.json(products);
@@ -166,15 +167,30 @@ export const updateAdminProduct = async (req, res) => {
 };
 
 export const deleteAdminProduct = async (req, res) => {
-  const product = await Product.findByIdAndUpdate(
-    req.params.id,
-    { status: "discontinued" },
-    { new: true }
-  ).populate("category", "name slug");
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid product id" });
+  }
 
+  const product = await Product.findById(id);
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
   }
 
-  return res.json({ message: "Product marked discontinued", product });
+  // Check if product has active orders
+  const activeOrder = await Order.findOne({
+    "orderItems.product": product._id,
+    adminDeletedAt: { $exists: false },
+    status: { $nin: ["delivered", "cancelled", "returned"] }
+  });
+  if (activeOrder) {
+    return res.status(400).json({
+      message: "Cannot discontinue product — it has active orders in progress."
+    });
+  }
+
+  product.status = "discontinued";
+  await product.save();
+
+  return res.json({ message: "Product discontinued", product });
 };

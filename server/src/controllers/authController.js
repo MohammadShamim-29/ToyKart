@@ -77,6 +77,8 @@ export const registerUser = async (req, res) => {
     password: hashedPassword
   });
 
+  sendWelcomeEmail(user);
+
   return res.status(201).json(sanitizeAuthUser(user));
 };
 

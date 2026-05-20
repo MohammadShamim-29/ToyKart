@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useRecordContext } from "react-admin";
 import {
   Alert,
   Box,
@@ -16,6 +17,8 @@ import {
   BooleanInput,
   Datagrid,
   DateField,
+  DateInput,
+  DeleteButton,
   Edit,
   EditButton,
   FunctionField,
@@ -28,7 +31,6 @@ import {
   SimpleForm,
   TextInput,
   useNotify,
-  useRecordContext,
   useRefresh
 } from "react-admin";
 import api from "../../api";
@@ -58,7 +60,8 @@ const currency = new Intl.NumberFormat("en-BD", {
   maximumFractionDigits: 0
 });
 
-const titleFromOrder = (record) => `Order #${record?.orderNumber || String(record?.id || "").slice(-8).toUpperCase()}`;
+const titleFromOrder = ({ record }) =>
+  `Order #${record?.orderNumber || String(record?.id || "").slice(-8).toUpperCase()}`;
 
 const statusChip = (status) => {
   const s = String(status || "pending");
@@ -67,11 +70,13 @@ const statusChip = (status) => {
       ? "success"
       : s === "cancelled" || s === "returned"
         ? "error"
-        : s === "shipped" || s === "processing"
-          ? "info"
-          : s === "confirmed"
-            ? "primary"
-            : "warning";
+        : s === "refunded"
+          ? "warning"
+          : s === "shipped" || s === "processing"
+            ? "info"
+            : s === "confirmed"
+              ? "primary"
+              : "warning";
   return <Chip size="small" variant="outlined" label={s.charAt(0).toUpperCase() + s.slice(1)} color={color} />;
 };
 
@@ -116,6 +121,13 @@ const OrderFormAside = () => {
           Save applies status/payment/tracking edits and appends note/refund updates from the form.
         </Typography>
         <SaveButton label="Save order" variant="contained" fullWidth disabled={busy} />
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+          Danger zone
+        </Typography>
+        <DeleteButton mutationMode="pessimistic" variant="outlined" color="error" fullWidth label="Delete order" />
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -375,21 +387,29 @@ const OrderHistoryPreview = () => {
 const orderFormHint =
   "This works like WooCommerce order admin: adjust status/payment/tracking, keep internal notes, and use quick actions for the common flow from processing to delivery.";
 
-const OrderFormFields = () => (
-  <AdminFormPageLayout hint={orderFormHint} hintTitle="Order operations" aside={<OrderFormAside />}>
-    <AdminFormSection
-      sectionId="section-order-overview"
-      title="Overview"
-      description="Core order lifecycle controls and accounting fields."
-    >
-      <SelectInput source="status" choices={statusChoices} fullWidth />
-      <TextInput source="statusNote" label="Status change note" fullWidth multiline minRows={2} />
-      <BooleanInput source="isPaid" label="Paid" />
-      <TextInput source="paymentReference" label="Payment reference" fullWidth />
-      <TextInput source="cancelReason" label="Cancel reason" fullWidth />
-      <NumberInput source="newRefundAmount" label="Refund amount (BDT)" min={0} fullWidth />
-      <TextInput source="newRefundReason" label="Refund reason" fullWidth />
-    </AdminFormSection>
+const OrderFormFields = () => {
+  const record = useRecordContext();
+
+  return (
+    <AdminFormPageLayout hint={orderFormHint} hintTitle="Order operations" aside={<OrderFormAside />}>
+      <AdminFormSection
+        sectionId="section-order-overview"
+        title="Overview"
+        description="Core order lifecycle controls and accounting fields."
+      >
+        <SelectInput source="status" choices={statusChoices} fullWidth />
+        <TextInput source="statusNote" label="Status change note" fullWidth multiline minRows={2} />
+        <BooleanInput source="isPaid" label="Paid" />
+        <TextInput source="paymentReference" label="Payment reference" fullWidth />
+        {record?.paymentMethod === "SSLCommerz" && record?.paymentReference && (
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+            SSL Transaction ID: {record.paymentReference} (used automatically for refunds)
+          </Typography>
+        )}
+        <TextInput source="cancelReason" label="Cancel reason" fullWidth />
+        <NumberInput source="newRefundAmount" label="Refund amount (BDT)" min={0} fullWidth />
+        <TextInput source="newRefundReason" label="Refund reason" fullWidth />
+      </AdminFormSection>
 
     <AdminFormSection
       sectionId="section-order-fulfillment"
@@ -398,7 +418,7 @@ const OrderFormFields = () => (
     >
       <TextInput source="fulfillment.carrier" label="Carrier" fullWidth />
       <TextInput source="fulfillment.trackingNumber" label="Tracking number" fullWidth />
-      <TextInput source="fulfillment.shippedAt" label="Shipped at (ISO date)" fullWidth />
+      <DateInput source="fulfillment.shippedAt" label="Shipped at" fullWidth />
       <TextInput source="internalMemo" label="Internal memo" fullWidth multiline minRows={3} />
       <TextInput source="adminNote" label="Add internal note" fullWidth multiline minRows={3} />
     </AdminFormSection>
@@ -427,9 +447,10 @@ const OrderFormFields = () => (
       description="Status transition history and admin audit notes."
     >
       <OrderHistoryPreview />
-    </AdminFormSection>
-  </AdminFormPageLayout>
-);
+     </AdminFormSection>
+   </AdminFormPageLayout>
+   );
+};
 
 export const OrderList = () => (
   <List
@@ -451,6 +472,7 @@ export const OrderList = () => (
       <NumberField source="totalPrice" label="Total" options={{ style: "currency", currency: "BDT", maximumFractionDigits: 0 }} />
       <DateField source="createdAt" label="Placed" showTime />
       <EditButton />
+      <DeleteButton mutationMode="pessimistic" />
     </Datagrid>
   </List>
 );

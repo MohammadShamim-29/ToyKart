@@ -18,6 +18,7 @@ import adminOrderRoutes from "./routes/adminOrderRoutes.js";
 import adminUserRoutes from "./routes/adminUserRoutes.js";
 import returnRequestRoutes from "./routes/returnRequestRoutes.js";
 import adminReturnRequestRoutes from "./routes/adminReturnRequestRoutes.js";
+import refundRoutes from "./routes/refundRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 
@@ -50,6 +51,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/returns", returnRequestRoutes);
 app.use("/api/shipping", shippingRoutes);
+app.use("/api/refunds", refundRoutes);
 app.use("/api/admin/categories", adminCategoryRoutes);
 app.use("/api/admin/products", adminProductRoutes);
 app.use("/api/admin/upload", adminUploadRoutes);

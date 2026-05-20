@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Category from "../models/Category.js";
+import Product from "../models/Product.js";
 import { slugify } from "../utils/slugify.js";
 
 function categoryIdFromParams(req, res) {
@@ -17,7 +18,7 @@ function categoryIdFromParams(req, res) {
 }
 
 export const listAdminCategories = async (req, res) => {
-  const categories = await Category.find().sort({ sortOrder: 1, name: 1 });
+  const categories = await Category.find({ isActive: true }).sort({ sortOrder: 1, name: 1 });
   return res.json(categories);
 };
 
@@ -88,13 +89,25 @@ export const updateAdminCategory = async (req, res) => {
 export const deleteAdminCategory = async (req, res) => {
   const id = categoryIdFromParams(req, res);
   if (!id) return;
-  const category = await Category.findByIdAndUpdate(
-    id,
-    { isActive: false },
-    { new: true }
-  );
+
+  const category = await Category.findById(id);
   if (!category) {
     return res.status(404).json({ message: "Category not found" });
   }
+
+  // Check if any active products use this category
+  const activeProduct = await Product.findOne({
+    category: category._id,
+    status: { $ne: "discontinued" }
+  });
+  if (activeProduct) {
+    return res.status(400).json({
+      message: "Cannot deactivate category — it has active products. Reassign or discontinue them first."
+    });
+  }
+
+  category.isActive = false;
+  await category.save();
+
   return res.json({ message: "Category deactivated", category });
 };

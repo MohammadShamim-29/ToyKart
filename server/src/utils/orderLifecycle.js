@@ -5,7 +5,8 @@ export const ORDER_STATUSES = [
   "shipped",
   "delivered",
   "cancelled",
-  "returned"
+  "returned",
+  "refunded"
 ];
 
 const ORDER_TRANSITIONS = {
@@ -14,8 +15,9 @@ const ORDER_TRANSITIONS = {
   processing: new Set(["shipped", "cancelled"]),
   shipped: new Set(["delivered", "returned"]),
   delivered: new Set(["returned"]),
-  cancelled: new Set(),
-  returned: new Set()
+  cancelled: new Set(["refunded"]),
+  returned: new Set(["refunded"]),
+  refunded: new Set()
 };
 
 export const normalizeOrderStatus = (status) => {
@@ -98,6 +100,10 @@ export const setOrderStatus = (order, { toStatus, actor, note = "", at = new Dat
   if (next === "returned") {
     order.isDelivered = false;
   }
+  if (next === "refunded") {
+    order.isPaid = true;
+    order.isDelivered = false;
+  }
 };
 
 export const ensureOrderLifecycleDefaults = (order) => {
@@ -112,7 +118,7 @@ export const ensureOrderLifecycleDefaults = (order) => {
     order.adminNotes = [];
   }
   if (!order.refund) {
-    order.refund = { amount: 0, reason: "" };
+    order.refund = { amount: 0, reason: "", sslRefundRefId: "" };
   }
   return order;
 };

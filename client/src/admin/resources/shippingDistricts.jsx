@@ -18,7 +18,8 @@ import {
   required,
   ListActions,
   ReferenceInput,
-  SelectInput
+  SelectInput,
+  ReferenceField
 } from "react-admin";
 import { AdminFormPageLayout, AdminFormSection } from "../components/AdminFormChrome";
 
@@ -61,7 +62,12 @@ export const ShippingDistrictList = () => (
   <List
     actions={<ListActions />}
     sort={{ field: "sortOrder", order: "ASC" }}
-    filters={[<TextInput key="q" source="q" label="Search" alwaysOn resettable />]}
+    filters={[
+      <TextInput key="q" source="q" label="Search" alwaysOn resettable />,
+      <ReferenceInput key="country" source="country" reference="shipping-countries" alwaysOn>
+        <SelectInput optionText="name" optionValue="id" label="Filter by Country" />
+      </ReferenceInput>
+    ]}
   >
     <Datagrid rowClick="edit">
       <TextField source="name" label="District / City" />

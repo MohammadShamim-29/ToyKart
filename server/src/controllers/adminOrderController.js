@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
+import ReturnRequest from "../models/ReturnRequest.js";
 import {
   actorFromUser,
   appendAdminNote,
@@ -12,6 +13,7 @@ import {
   ORDER_STATUSES,
   setOrderStatus
 } from "../utils/orderLifecycle.js";
+import { sendOrderShipped, sendOrderDelivered, sendOrderCancelled } from "../utils/mailer.js";
 
 const normalizeText = (value) => String(value ?? "").trim();
 
@@ -69,12 +71,40 @@ const parseOptionalDate = (value) => {
 const parsePositiveAmount = (value) => {
   if (value === undefined || value === null || value === "") return undefined;
   const amount = Number(value);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    const err = new Error("Refund amount must be greater than 0");
+  if (!Number.isFinite(amount) || amount < 0) {
+    const err = new Error("Amount must be a positive number");
     err.statusCode = 400;
     throw err;
   }
   return amount;
+};
+
+const refundSslPayment = async (bankTranId, amount, remarks) => {
+  const baseUrl = String(process.env.SSLCZ_IS_LIVE).toLowerCase() === "true"
+    ? "https://securepay.sslcommerz.com"
+    : "https://sandbox.sslcommerz.com";
+
+  const params = new URLSearchParams({
+    store_id: process.env.SSLCZ_STORE_ID || "",
+    store_passwd: process.env.SSLCZ_STORE_PASSWORD || "",
+    bank_tran_id: bankTranId,
+    refund_amount: String(Number(amount).toFixed(2)),
+    refund_remarks: remarks || "",
+    v: "1",
+    format: "json"
+  });
+
+  const response = await fetch(`${baseUrl}/gwprocess/v4/refund.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString()
+  });
+
+  if (!response.ok) {
+    throw new Error(`SSLCommerz refund API failed with status ${response.status}`);
+  }
+
+  return response.json();
 };
 
 const applyMutableOrderFields = ({ order, body, actor }) => {
@@ -91,7 +121,7 @@ const applyMutableOrderFields = ({ order, body, actor }) => {
     const prev = normalizeOrderStatus(order.status);
     if (!canTransitionOrderStatus(prev, next)) {
       const err = new Error(`Invalid status transition: ${prev} -> ${next}`);
-      err.statusCode =400;
+      err.statusCode = 400;
       throw err;
     }
 
@@ -193,7 +223,7 @@ const applyMutableOrderFields = ({ order, body, actor }) => {
 };
 
 export const listAdminOrders = async (req, res) => {
-  const query = {};
+  const query = { adminDeletedAt: { $exists: false } };
   const status = normalizeText(req.query.status);
   const paymentStatus = normalizeText(req.query.paymentStatus).toLowerCase();
   const dateFrom = normalizeText(req.query.dateFrom);
@@ -377,6 +407,10 @@ export const updateAdminOrderStatus = async (req, res) => {
     .populate("user", "name email")
     .populate("orderItems.product", "name slug sku image");
 
+  if (status === "shipped" && populated?.user) sendOrderShipped(populated, populated.user);
+  if (status === "delivered" && populated?.user) sendOrderDelivered(populated, populated.user);
+  if (status === "cancelled" && populated?.user) sendOrderCancelled(populated, populated.user, req.body?.reason);
+
   return res.json(serializeAdminOrder(populated));
 };
 
@@ -448,67 +482,95 @@ export const cancelAdminOrder = async (req, res) => {
     .populate("user", "name email")
     .populate("orderItems.product", "name slug sku image");
 
+  sendOrderCancelled(populated, populated.user, reason);
+
   return res.json(serializeAdminOrder(populated));
 };
 
 export const refundAdminOrder = async (req, res) => {
-  const id = orderIdFromParams(req, res);
-  if (!id) return;
+    const id = orderIdFromParams(req, res);
+    if (!id) return;
 
-  const order = await Order.findById(id);
-  if (!order) {
-    return res.status(404).json({ message: "Order not found" });
-  }
-
-  ensureOrderLifecycleDefaults(order);
-
-  let amount;
-  try {
-    amount = parsePositiveAmount(req.body?.amount);
-  } catch (error) {
-    if (error.statusCode === 400) {
-      return res.status(400).json({ message: error.message });
+    const order = await Order.findById(id);
+    if (!order) {
+        return res.status(404).json({ message: "Order not found" });
     }
-    throw error;
-  }
 
-  if (amount === undefined) {
-    return res.status(400).json({ message: "Refund amount is required" });
-  }
+    ensureOrderLifecycleDefaults(order);
 
-  if (amount > Number(order.totalPrice || 0)) {
-    return res.status(400).json({ message: "Refund amount cannot exceed order total" });
-  }
+    let amount;
+    try {
+        amount = parsePositiveAmount(req.body?.amount);
+    } catch (error) {
+        if (error.statusCode === 400) {
+            return res.status(400).json({ message: error.message });
+        }
+        throw error;
+    }
 
-  const actor = actorFromUser(req.user, "admin");
-  const reason = normalizeText(req.body?.reason);
-  const now = new Date();
+    if (amount === undefined) {
+        return res.status(400).json({ message: "Refund amount is required" });
+    }
 
-  order.refund = {
-    amount,
-    reason,
-    refundedAt: now,
-    refundedBy: actor
-  };
-  if (!order.isPaid) {
-    order.isPaid = true;
-    order.paidAt = now;
-  }
+    if (amount > Number(order.totalPrice || 0)) {
+        return res.status(400).json({ message: "Refund amount cannot exceed order total" });
+    }
+    const actor = actorFromUser(req.user, "admin");
+    const reason = normalizeText(req.body?.reason);
+    const now = new Date();
 
-  appendAdminNote(order, {
-    body: `Refund issued: ৳${amount}${reason ? ` (${reason})` : ""}`,
-    actor,
-    isPrivate: true,
-    at: now
-  });
+    // Process SSLCommerz refund if the order was paid via SSLCommerz
+    let sslRefundRefId = null;
+    if (order.paymentMethod === "SSLCommerz" && order.isPaid) {
+        // Use stored paymentReference (transaction ID from SSLCommerz)
+        const bankTranId = order.paymentReference;
 
-  await order.save();
+        if (!bankTranId) {
+            return res.status(400).json({ message: "No SSL transaction ID found for this order. Cannot process SSLCommerz refund." });
+        }
 
-  const populated = await Order.findById(order._id)
-    .populate("user", "name email")
-    .populate("orderItems.product", "name slug sku image");
+        try {
+            const result = await refundSslPayment(bankTranId, amount, reason || "Admin refund");
+            if (result?.status === "success") {
+                sslRefundRefId = result.refund_ref_id || null;
+            } else {
+                return res.status(400).json({
+                    message: `SSLCommerz refund failed: ${result?.errorReason || "Unknown error"}`
+                });
+            }
+        } catch (err) {
+            return res.status(502).json({ message: `SSLCommerz refund error: ${err.message}` });
+        }
+    }
 
-  return res.json(serializeAdminOrder(populated));
+    order.refund = {
+        amount,
+        reason,
+        refundedAt: now,
+        refundedBy: actor,
+        sslRefundRefId
+    };
+
+    setOrderStatus(order, {
+        toStatus: "refunded",
+        actor,
+        note: reason ? `Refund issued: BDT ${amount} (${reason})${sslRefundRefId ? ` [Ref: ${sslRefundRefId}]` : ""}` : `Refund issued: BDT ${amount}${sslRefundRefId ? ` [Ref: ${sslRefundRefId}]` : ""}`
+    });
+
+    appendAdminNote(order, {
+        body: `Refund issued: BDT ${amount}${reason ? ` (${reason})` : ""}${sslRefundRefId ? ` [SSL Ref: ${sslRefundRefId}]` : ""}`,
+        actor,
+        isPrivate: true,
+        at: now
+    });
+
+    await order.save();
+
+    const populated = await Order.findById(order._id)
+        .populate("user", "name email")
+        .populate("orderItems.product", "name slug sku image");
+
+    return res.json(serializeAdminOrder(populated));
 };
 
 export const getAdminOrderAnalytics = async (req, res) => {
@@ -566,4 +628,33 @@ export const getAdminOrderAnalytics = async (req, res) => {
     todaySales,
     salesByCategory
   });
+};
+
+export const deleteAdminOrder = async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid order id" });
+  }
+  const order = await Order.findById(id);
+  if (!order) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+
+  // Check for active return requests
+  const activeReturn = await ReturnRequest.findOne({
+    order: id,
+    status: { $nin: ["COMPLETED", "REJECTED", "CLOSED", "REFUND_REJECTED", "ITEM_RETURNED_TO_CUSTOMER"] }
+  });
+  if (activeReturn) {
+    return res.status(400).json({
+      message: "Cannot delete order with an active return request. Close the return request first."
+    });
+  }
+
+  // Soft delete — preserve audit trail
+  order.adminDeletedAt = new Date();
+  order.adminDeletedBy = req.user._id;
+  await order.save();
+
+  return res.json({ message: "Order deleted", id });
 };

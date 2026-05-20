@@ -38,7 +38,11 @@ async function assertCountryExists(countryId) {
 }
 
 export const listAdminShippingDistricts = async (req, res) => {
-  const districts = await ShippingDistrict.find()
+  const query = {};
+  if (req.query.country) {
+    query.country = req.query.country;
+  }
+  const districts = await ShippingDistrict.find(query)
     .populate("country", "name isoCode isEnabled")
     .sort({ sortOrder: 1, name: 1 });
   return res.json(districts);

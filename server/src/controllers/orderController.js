@@ -13,6 +13,7 @@ import {
   normalizeOrderStatus,
   setOrderStatus
 } from "../utils/orderLifecycle.js";
+import { sendOrderConfirmation, sendOrderCancelled } from "../utils/mailer.js";
 
 const badRequest = (message) => {
   const err = new Error(message);
@@ -48,6 +49,7 @@ const restoreOrderStock = async (order) => {
 const serializeOrder = (orderDoc) => {
   if (!orderDoc) return orderDoc;
   const order = typeof orderDoc.toObject === "function" ? orderDoc.toObject({ virtuals: false }) : orderDoc;
+  ensureOrderLifecycleDefaults(order);
   return {
     ...order,
     status: normalizeOrderStatus(order.status),
@@ -126,14 +128,15 @@ const createOrderInternal = async ({
     if (!product || product.status !== "active") {
       throw badRequest(`Product unavailable: ${item.name || item.product}`);
     }
-    if (item.qty < 1 || item.qty > product.countInStock) {
+    const qty = Number(item.qty);
+    if (!Number.isInteger(qty) || qty < 1 || qty > product.countInStock) {
       throw badRequest(`Insufficient stock for ${product.name}`);
     }
     if (Math.abs(Number(item.price) - Number(product.price)) > 0.01) {
       throw badRequest(`Price changed for ${product.name}. Refresh your cart.`);
     }
 
-    product.countInStock -= item.qty;
+    product.countInStock -= qty;
     if (session) {
       await product.save({ session });
     } else {
@@ -313,6 +316,8 @@ export const createOrder = async (req, res) => {
       await created.save();
     }
 
+    sendOrderConfirmation(created, req.user);
+
     return res.status(201).json(serializeOrder(created));
   } catch (e) {
     if (e.statusCode === 400) {
@@ -421,8 +426,11 @@ const applyValidatedPaymentToOrder = async (payload) => {
 };
 
 export const sslCommerzSuccess = async (req, res) => {
-  await applyValidatedPaymentToOrder(req.body);
+  const result = await applyValidatedPaymentToOrder(req.body);
   const clientBaseUrl = resolveClientBaseUrl();
+  if (!result) {
+    return res.redirect(`${clientBaseUrl}/checkout?payment=failed`);
+  }
   return res.redirect(`${clientBaseUrl}/checkout/thank-you?payment=success`);
 };
 
@@ -500,22 +508,7 @@ export const cancelMyOrder = async (req, res) => {
     note: reason ? `Cancelled by customer: ${reason}` : "Cancelled by customer"
   });
 
-  // Auto-refund fully when customer cancels an online-paid order.
-  if (order.paymentMethod === SSL_PAYMENT_METHOD && order.isPaid) {
-    const fullAmount = Number(order.totalPrice || 0);
-    order.refund = {
-      amount: fullAmount,
-      reason: "Auto full refund after customer cancellation",
-      refundedAt: new Date(),
-      refundedBy: actor
-    };
 
-    appendAdminNote(order, {
-      body: `Auto refund recorded after customer cancellation: ৳${fullAmount}`,
-      actor,
-      isPrivate: true
-    });
-  }
 
   order.cancelReason = reason || "Cancelled by customer";
   order.cancelledBy = actor;
@@ -529,6 +522,9 @@ export const cancelMyOrder = async (req, res) => {
 
   await restoreOrderStock(order);
   await order.save();
+
+  sendOrderCancelled(order, req.user, reason);
+
   return res.json(serializeOrder(order));
 };
 

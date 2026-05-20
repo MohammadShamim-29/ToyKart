@@ -19,6 +19,7 @@ import {
 import { OrderList, OrderEdit } from "./resources/orders";
 import { UserList, UserShow } from "./resources/users";
 import { ReturnRequestList, ReturnRequestEdit } from "./resources/returns";
+import { CancelledOrderList, CancelledOrderEdit } from "./resources/cancelledOrders";
 
 const adminTheme = createTheme({
   palette: {
@@ -171,6 +172,13 @@ const AdminApp = () => (
       create={ShippingDistrictCreate}
       recordRepresentation="name"
       options={{ label: "Shipping Districts" }}
+    />
+    <Resource
+      name="cancelled-orders"
+      list={CancelledOrderList}
+      edit={CancelledOrderEdit}
+      recordRepresentation={(record) => `#${record?.orderNumber || record?.id || ""}`}
+      options={{ label: "Cancelled Orders" }}
     />
   </Admin>
 );

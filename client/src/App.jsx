@@ -13,6 +13,8 @@ import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import CheckoutThankYouPage from "./pages/CheckoutThankYouPage";
 import ProfilePage from "./pages/ProfilePage";
+import ReturnRequestsPage from "./pages/ReturnRequestsPage";
+import ReturnDetailsPage from "./pages/ReturnDetailsPage";
 import StorefrontLayout from "./layouts/StorefrontLayout";
 import AdminRoute from "./admin/AdminRoute";
 
@@ -82,6 +84,22 @@ const App = () => {
           element={
             <ProtectedRoute>
               <OrdersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/returns"
+          element={
+            <ProtectedRoute>
+              <ReturnRequestsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/returns/:id"
+          element={
+            <ProtectedRoute>
+              <ReturnDetailsPage />
             </ProtectedRoute>
           }
         />

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
+import ReturnRequest from "../models/ReturnRequest.js";
 
 const normalizeText = (value) => String(value ?? "").trim();
 
@@ -89,6 +90,33 @@ export const deleteAdminUser = async (req, res) => {
   const user = await User.findById(id).select("name email phone isAdmin createdAt updatedAt");
   if (!user) {
     return res.status(404).json({ message: "User not found" });
+  }
+
+  if (user.isAdmin) {
+    return res.status(400).json({ message: "Cannot delete admin accounts." });
+  }
+
+  // Check for active orders
+  const activeOrder = await Order.findOne({
+    user: user._id,
+    adminDeletedAt: { $exists: false },
+    status: { $nin: ["delivered", "cancelled", "returned"] }
+  });
+  if (activeOrder) {
+    return res.status(400).json({
+      message: "Cannot delete user — they have active orders. Cancel or complete them first."
+    });
+  }
+
+  // Check for active return requests
+  const activeReturn = await ReturnRequest.findOne({
+    user: user._id,
+    status: { $nin: ["COMPLETED", "REJECTED", "CLOSED", "REFUND_REJECTED", "ITEM_RETURNED_TO_CUSTOMER"] }
+  });
+  if (activeReturn) {
+    return res.status(400).json({
+      message: "Cannot delete user — they have active return requests. Resolve them first."
+    });
   }
 
   await User.deleteOne({ _id: user._id });

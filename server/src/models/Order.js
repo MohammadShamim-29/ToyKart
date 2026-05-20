@@ -25,12 +25,12 @@ const statusHistorySchema = new mongoose.Schema(
   {
     from: {
       type: String,
-      enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned"],
+      enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned", "refunded"],
       default: "pending"
     },
     to: {
       type: String,
-      enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned"],
+      enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned", "refunded"],
       required: true
     },
     note: { type: String, trim: true, default: "" },
@@ -71,7 +71,7 @@ const orderSchema = new mongoose.Schema(
     totalPrice: { type: Number, required: true, min: 0 },
     status: {
       type: String,
-      enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned"],
+      enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned", "refunded"],
       default: "pending"
     },
     isPaid: { type: Boolean, default: false },
@@ -93,10 +93,36 @@ const orderSchema = new mongoose.Schema(
       amount: { type: Number, min: 0, default: 0 },
       reason: { type: String, trim: true, default: "" },
       refundedAt: { type: Date },
-      refundedBy: actorSchema
+      refundedBy: actorSchema,
+      sslRefundRefId: { type: String, trim: true, default: "" }
+    },
+    // New refund management fields
+    refundStatus: {
+      type: String,
+      enum: ["pending", "processing", "success", "failed", "none"],
+      default: "none",
+      index: true
+    },
+    refundRefId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true
+    },
+    refundedAt: { type: Date },
+    cancellationApprovedAt: { type: Date },
+    cancellationApprovedBy: actorSchema,
+    returnApprovedAt: { type: Date },
+    returnApprovedBy: actorSchema,
+    bankTranId: {
+      type: String,
+      trim: true,
+      default: ""
     },
     internalMemo: { type: String, trim: true, default: "" },
-    customerDeletedAt: { type: Date }
+    customerDeletedAt: { type: Date },
+    adminDeletedAt: { type: Date },
+    adminDeletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   },
   { timestamps: true }
 );
