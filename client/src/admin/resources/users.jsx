@@ -24,7 +24,7 @@ const roleChip = (isAdmin) => {
 
 export const UserList = () => (
   <List filters={userFilters} sort={{ field: "createdAt", order: "DESC" }} perPage={25}>
-    <Datagrid rowClick="show" bulkActionButtons={false}>
+    <Datagrid rowClick="show">
       <TextField source="name" label="Full Name" />
       <EmailField source="email" />
       <TextField source="phone" />

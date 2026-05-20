@@ -129,7 +129,7 @@ const OrderFormAside = () => {
             disabled={busy}
             onClick={() =>
               runAction(async () => {
-                await api.patch(`/admin/orders/${record.id}/status`, {
+                await api.patch(`admin/orders/${record.id}/status`, {
                   status: "processing",
                   note: "Moved to processing from admin quick action"
                 });
@@ -145,7 +145,7 @@ const OrderFormAside = () => {
             disabled={busy}
             onClick={() =>
               runAction(async () => {
-                await api.patch(`/admin/orders/${record.id}/status`, {
+                await api.patch(`admin/orders/${record.id}/status`, {
                   status: "shipped",
                   note: "Marked shipped from admin quick action"
                 });
@@ -161,7 +161,7 @@ const OrderFormAside = () => {
             disabled={busy}
             onClick={() =>
               runAction(async () => {
-                await api.patch(`/admin/orders/${record.id}/status`, {
+                await api.patch(`admin/orders/${record.id}/status`, {
                   status: "delivered",
                   note: "Marked delivered from admin quick action"
                 });
@@ -179,7 +179,7 @@ const OrderFormAside = () => {
             onClick={() =>
               runAction(async () => {
                 const reason = window.prompt("Cancellation reason (optional):", "");
-                await api.patch(`/admin/orders/${record.id}/cancel`, { reason: reason || "" });
+                await api.patch(`admin/orders/${record.id}/cancel`, { reason: reason || "" });
                 notify("Order cancelled", { type: "success" });
               })
             }
@@ -204,7 +204,7 @@ const OrderFormAside = () => {
               runAction(async () => {
                 const note = window.prompt("Add internal note:", "");
                 if (!note || !note.trim()) return;
-                await api.post(`/admin/orders/${record.id}/notes`, { note, isPrivate: true });
+                await api.post(`admin/orders/${record.id}/notes`, { note, isPrivate: true });
                 notify("Note added", { type: "success" });
               })
             }
@@ -442,7 +442,7 @@ export const OrderList = () => (
       <SelectInput key="paymentStatus" source="paymentStatus" choices={paymentChoices} alwaysOn />
     ]}
   >
-    <Datagrid rowClick="edit" bulkActionButtons={false}>
+    <Datagrid rowClick="edit">
       <FunctionField label="Order" render={(record) => `#${record.orderNumber || String(record.id || "").slice(-8).toUpperCase()}`} />
       <FunctionField label="Customer" render={(record) => record.customerName || record.user?.name || "Customer"} />
       <FunctionField label="Status" render={(record) => statusChip(record.status)} />

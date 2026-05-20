@@ -1,0 +1,70 @@
+@startuml
+hide circle
+skinparam classAttributeIconSize 0
+
+caption Step 2 - 1NF (atomic values, repeating groups separated)
+
+entity "ORDER_1NF" as ORDER_1NF {
+  * order_id
+  --
+  order_date
+  order_status
+  paymentMethod
+  isPaid
+  customer_id
+  customer_name
+  customer_email
+  customer_phone
+  shipping_firstName
+  shipping_address
+  shipping_city
+  shipping_country
+  shipping_postalCode
+  shipping_phone
+  shipping_email
+}
+
+entity "ORDER_ITEM_1NF" as ORDER_ITEM_1NF {
+  * order_id
+  * product_id
+  --
+  product_name
+  category_name
+  qty
+  unit_price
+}
+
+entity "RETURN_REQUEST_1NF" as RETURN_REQUEST_1NF {
+  * return_id
+  --
+  order_id
+  customer_id
+  requestType
+  return_status
+  return_reason
+}
+
+entity "RETURN_ITEM_1NF" as RETURN_ITEM_1NF {
+  * return_id
+  * product_id
+  --
+  qty
+  reason
+}
+
+entity "ORDER_STATUS_HISTORY_1NF" as ORDER_STATUS_HISTORY_1NF {
+  * order_id
+  * changedAt
+  --
+  from_status
+  to_status
+  actor_name
+  actor_role
+}
+
+ORDER_1NF ||--o{ ORDER_ITEM_1NF
+ORDER_1NF ||--o{ RETURN_REQUEST_1NF
+RETURN_REQUEST_1NF ||--o{ RETURN_ITEM_1NF
+ORDER_1NF ||--o{ ORDER_STATUS_HISTORY_1NF
+
+@enduml

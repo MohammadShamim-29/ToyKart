@@ -12,6 +12,7 @@ import OrdersPage from "./pages/OrdersPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import CheckoutThankYouPage from "./pages/CheckoutThankYouPage";
+import ProfilePage from "./pages/ProfilePage";
 import StorefrontLayout from "./layouts/StorefrontLayout";
 import AdminRoute from "./admin/AdminRoute";
 
@@ -81,6 +82,14 @@ const App = () => {
           element={
             <ProtectedRoute>
               <OrdersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />

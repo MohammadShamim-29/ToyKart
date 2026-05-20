@@ -61,8 +61,12 @@ const CountryFormFields = ({ isCreate = false }) => (
 );
 
 export const ShippingCountryList = () => (
-  <List actions={<ListActions />} sort={{ field: "sortOrder", order: "ASC" }}>
-    <Datagrid rowClick="edit" bulkActionButtons={false}>
+  <List
+    actions={<ListActions />}
+    sort={{ field: "sortOrder", order: "ASC" }}
+    filters={[<TextInput key="q" source="q" label="Search" alwaysOn resettable />]}
+  >
+    <Datagrid rowClick="edit">
       <TextField source="name" />
       <TextField source="isoCode" />
       <NumberField source="sortOrder" />

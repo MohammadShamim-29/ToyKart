@@ -1,0 +1,92 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #ffffff
+  BorderColor #333333
+  ArrowColor #333333
+}
+skinparam actor {
+  BorderColor #333333
+  FontColor #111111
+}
+
+actor Visitor
+actor Customer
+actor Admin
+actor SSLCommerz as Gateway
+
+rectangle "ToyKart System" {
+  (Browse Products) as UC_BROWSE
+  (Search Products) as UC_SEARCH
+  (View Product Details) as UC_VIEW_PRODUCT
+  (View Shipping Locations) as UC_SHIPPING_LOC
+  (Register Account) as UC_REGISTER
+  (Login) as UC_LOGIN
+  (Manage Cart) as UC_CART
+  (Checkout) as UC_CHECKOUT
+  (Place Order) as UC_PLACE_ORDER
+  (Pay via SSLCommerz) as UC_PAY_SSL
+  (View My Orders) as UC_MY_ORDERS
+  (View Order Details) as UC_ORDER_DETAILS
+  (Cancel My Order) as UC_CANCEL_ORDER
+  (Delete Order History) as UC_DELETE_HISTORY
+  (Create Return Request) as UC_RETURN_CREATE
+  (View My Return Requests) as UC_RETURN_VIEW
+
+  (Admin Login) as UC_ADMIN_LOGIN
+  (Manage Products) as UC_ADMIN_PRODUCTS
+  (Upload Product Image) as UC_ADMIN_UPLOAD
+  (Manage Categories) as UC_ADMIN_CATEGORIES
+  (Manage Shipping Countries) as UC_ADMIN_COUNTRIES
+  (Manage Shipping Districts) as UC_ADMIN_DISTRICTS
+  (Manage Orders) as UC_ADMIN_ORDERS
+  (Manage Return Requests) as UC_ADMIN_RETURNS
+  (View Customers) as UC_ADMIN_USERS
+}
+
+Visitor --> UC_BROWSE
+Visitor --> UC_SEARCH
+Visitor --> UC_VIEW_PRODUCT
+Visitor --> UC_SHIPPING_LOC
+Visitor --> UC_REGISTER
+Visitor --> UC_LOGIN
+Visitor --> UC_CART
+
+Customer -|> Visitor
+Customer --> UC_CHECKOUT
+Customer --> UC_PLACE_ORDER
+Customer --> UC_MY_ORDERS
+Customer --> UC_ORDER_DETAILS
+Customer --> UC_CANCEL_ORDER
+Customer --> UC_DELETE_HISTORY
+Customer --> UC_RETURN_CREATE
+Customer --> UC_RETURN_VIEW
+
+Admin --> UC_ADMIN_LOGIN
+Admin --> UC_ADMIN_PRODUCTS
+Admin --> UC_ADMIN_UPLOAD
+Admin --> UC_ADMIN_CATEGORIES
+Admin --> UC_ADMIN_COUNTRIES
+Admin --> UC_ADMIN_DISTRICTS
+Admin --> UC_ADMIN_ORDERS
+Admin --> UC_ADMIN_RETURNS
+Admin --> UC_ADMIN_USERS
+
+UC_SEARCH ..> UC_BROWSE : <<extend>>
+UC_CHECKOUT ..> UC_LOGIN : <<include>>
+UC_PLACE_ORDER ..> UC_CHECKOUT : <<include>>
+UC_PAY_SSL ..> UC_PLACE_ORDER : <<extend>>
+Gateway --> UC_PAY_SSL
+UC_CANCEL_ORDER ..> UC_ORDER_DETAILS : <<include>>
+UC_RETURN_CREATE ..> UC_ORDER_DETAILS : <<include>>
+UC_DELETE_HISTORY ..> UC_MY_ORDERS : <<include>>
+UC_ADMIN_UPLOAD ..> UC_ADMIN_PRODUCTS : <<include>>
+
+note right of UC_ADMIN_ORDERS
+  list/update/status
+  note/cancel/refund
+end note
+
+@enduml

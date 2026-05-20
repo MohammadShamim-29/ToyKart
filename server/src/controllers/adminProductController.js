@@ -106,6 +106,7 @@ export const getAdminProduct = async (req, res) => {
 };
 
 export const createAdminProduct = async (req, res) => {
+  console.log("[ToyKart Admin] createAdminProduct hit", req.body?.name);
   const parsed = normalizeProductBody(req.body, { isCreate: true });
   if (parsed.error) {
     return res.status(400).json({ message: parsed.error });

@@ -26,6 +26,13 @@ async function withDebug(op, meta, promise) {
     return result;
   } catch (err) {
     debugError(op, meta, err);
+    // Extract the actual error message from the server response
+    const serverMessage = err.response?.data?.message || err.response?.data?.error;
+    if (serverMessage) {
+      const richError = new Error(serverMessage);
+      richError.status = err.response?.status;
+      throw richError;
+    }
     throw err;
   }
 }
@@ -225,7 +232,7 @@ export const dataProvider = {
     const { data } = await withDebug(
       "getList",
       { resource, params },
-      api.get(`/admin/${resource}`, { params: buildListQuery(params) })
+      api.get(`admin/${resource}`, { params: buildListQuery(params) })
     );
     let rows = Array.isArray(data) ? data : [];
     rows = applyFilter(rows, params.filter);
@@ -239,7 +246,7 @@ export const dataProvider = {
     const { data } = await withDebug(
       "getOne",
       { resource, id },
-      api.get(`/admin/${resource}/${encodeURIComponent(id)}`)
+      api.get(`admin/${resource}/${encodeURIComponent(id)}`)
     );
     return { data: mapOneForForm(resource, data) };
   },
@@ -248,14 +255,14 @@ export const dataProvider = {
     const ids = [...new Set((params.ids || []).map(coerceRestId).filter(Boolean))];
     const results = await Promise.all(
       ids.map((id) =>
-        withDebug("getMany item", { resource, id }, api.get(`/admin/${resource}/${encodeURIComponent(id)}`))
+        withDebug("getMany item", { resource, id }, api.get(`admin/${resource}/${encodeURIComponent(id)}`))
       )
     );
     return { data: results.map((r) => mapOneForForm(resource, r.data)) };
   },
 
   getManyReference: async (resource, params) => {
-    const { data } = await withDebug("getManyReference", { resource, params }, api.get(`/admin/${resource}`));
+    const { data } = await withDebug("getManyReference", { resource, params }, api.get(`admin/${resource}`));
     let rows = Array.isArray(data) ? data : [];
     const id = coerceRestId(params.id);
     rows = rows.filter((row) => {
@@ -276,7 +283,7 @@ export const dataProvider = {
         : resource === "orders"
           ? normalizeOrderForApi(params.data)
           : stripIds(params.data);
-    const { data } = await withDebug("create", { resource }, api.post(`/admin/${resource}`, body));
+    const { data } = await withDebug("create", { resource }, api.post(`admin/${resource}`, body));
     return { data: mapRecord(data) };
   },
 
@@ -291,7 +298,7 @@ export const dataProvider = {
     const { data } = await withDebug(
       "update",
       { resource, id },
-      api.put(`/admin/${resource}/${encodeURIComponent(id)}`, body)
+      api.put(`admin/${resource}/${encodeURIComponent(id)}`, body)
     );
     return { data: mapRecord(data) };
   },
@@ -306,7 +313,7 @@ export const dataProvider = {
           : stripIds(params.data);
     await Promise.all(
       ids.map((id) =>
-        withDebug("updateMany", { resource, id }, api.put(`/admin/${resource}/${encodeURIComponent(id)}`, body))
+        withDebug("updateMany", { resource, id }, api.put(`admin/${resource}/${encodeURIComponent(id)}`, body))
       )
     );
     return { data: ids };
@@ -317,7 +324,7 @@ export const dataProvider = {
     const { data } = await withDebug(
       "delete",
       { resource, id },
-      api.delete(`/admin/${resource}/${encodeURIComponent(id)}`)
+      api.delete(`admin/${resource}/${encodeURIComponent(id)}`)
     );
     const record = unwrapDelete(data);
     return { data: mapRecord(record) };
@@ -327,7 +334,7 @@ export const dataProvider = {
     const ids = [...new Set((params.ids || []).map(coerceRestId).filter(Boolean))];
     await Promise.all(
       ids.map((id) =>
-        withDebug("deleteMany", { resource, id }, api.delete(`/admin/${resource}/${encodeURIComponent(id)}`))
+        withDebug("deleteMany", { resource, id }, api.delete(`admin/${resource}/${encodeURIComponent(id)}`))
       )
     );
     return { data: ids };

@@ -18,6 +18,7 @@ import adminOrderRoutes from "./routes/adminOrderRoutes.js";
 import adminUserRoutes from "./routes/adminUserRoutes.js";
 import returnRequestRoutes from "./routes/returnRequestRoutes.js";
 import adminReturnRequestRoutes from "./routes/adminReturnRequestRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -57,8 +58,14 @@ app.use("/api/admin/shipping-districts", adminShippingDistrictRoutes);
 app.use("/api/admin/orders", adminOrderRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/admin/returns", adminReturnRequestRoutes);
+app.use("/api/upload", uploadRoutes);
 
 app.use(notFound);
-app.use(errorHandler);
+app.use((err, req, res, next) => {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(`[ToyKart Error] ${req.method} ${req.url}`, err.stack);
+  }
+  errorHandler(err, req, res, next);
+});
 
 export default app;

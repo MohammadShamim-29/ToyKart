@@ -91,7 +91,7 @@ const applyMutableOrderFields = ({ order, body, actor }) => {
     const prev = normalizeOrderStatus(order.status);
     if (!canTransitionOrderStatus(prev, next)) {
       const err = new Error(`Invalid status transition: ${prev} -> ${next}`);
-      err.statusCode = 400;
+      err.statusCode =400;
       throw err;
     }
 
@@ -509,4 +509,61 @@ export const refundAdminOrder = async (req, res) => {
     .populate("orderItems.product", "name slug sku image");
 
   return res.json(serializeAdminOrder(populated));
+};
+
+export const getAdminOrderAnalytics = async (req, res) => {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Total Sales (only paid orders)
+  const totalSalesData = await Order.aggregate([
+    { $match: { isPaid: true, status: { $ne: "cancelled" } } },
+    { $group: { _id: null, total: { $sum: "$totalPrice" } } }
+  ]);
+  const totalSales = totalSalesData[0]?.total || 0;
+
+  // Today's Sales
+  const todaySalesData = await Order.aggregate([
+    { $match: { isPaid: true, status: { $ne: "cancelled" }, paidAt: { $gte: todayStart } } },
+    { $group: { _id: null, total: { $sum: "$totalPrice" } } }
+  ]);
+  const todaySales = todaySalesData[0]?.total || 0;
+
+  // Sales by Category
+  const salesByCategory = await Order.aggregate([
+    { $match: { isPaid: true, status: { $ne: "cancelled" } } },
+    { $unwind: "$orderItems" },
+    {
+      $lookup: {
+        from: "products",
+        localField: "orderItems.product",
+        foreignField: "_id",
+        as: "productInfo"
+      }
+    },
+    { $unwind: "$productInfo" },
+    {
+      $lookup: {
+        from: "categories",
+        localField: "productInfo.category",
+        foreignField: "_id",
+        as: "categoryInfo"
+      }
+    },
+    { $unwind: "$categoryInfo" },
+    {
+      $group: {
+        _id: "$categoryInfo.name",
+        totalAmount: { $sum: { $multiply: ["$orderItems.price", "$orderItems.qty"] } },
+        orderCount: { $sum: 1 }
+      }
+    },
+    { $sort: { totalAmount: -1 } }
+  ]);
+
+  res.json({
+    totalSales,
+    todaySales,
+    salesByCategory
+  });
 };

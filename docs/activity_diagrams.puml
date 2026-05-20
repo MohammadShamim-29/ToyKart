@@ -1,0 +1,332 @@
+' ToyKart Activity Diagrams (15)
+' Conventions used: start/stop, actions, decisions, guarded branches, merge, swimlanes where relevant.
+
+@startuml
+
+title 01 - Browse Product Catalog
+|User|
+start
+:Open ToyKart storefront;
+:View featured products and categories;
+if (Choose a category?) then (yes)
+  :Apply category filter;
+else (no)
+  :Continue browsing all products;
+endif
+:Scroll product list;
+:Select product to inspect;
+stop
+
+@enduml
+
+@startuml
+
+title 02 - Search Products
+|User|
+start
+:Enter keyword in search bar;
+:System fetches matching products;
+if (Results found?) then (yes)
+  :Review matching results;
+  :Open chosen product;
+else (no)
+  :Show "No products found" message;
+  :Refine keyword or clear filters;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 03 - View Product Details
+|User|
+start
+:Open product details page;
+:Review images, price, stock, and specs;
+if (Product in stock?) then (yes)
+  :Choose quantity/variant;
+  :Proceed to add to cart;
+else (no)
+  :View out-of-stock notice;
+  :Check related products;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 04 - Manage Cart
+|User|
+start
+:Open cart page;
+if (Cart empty?) then (yes)
+  :Show empty cart message;
+  :Return to shopping;
+  stop
+else (no)
+  :Update quantity/remove items;
+  :Apply coupon (optional);
+  :Review subtotal and shipping;
+  if (Proceed to checkout?) then (yes)
+    :Continue to checkout;
+  else (no)
+    :Keep shopping;
+  endif
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 05 - Register or Login
+|User|
+start
+if (Already has account?) then (yes)
+  :Enter email and password;
+  :Submit login;
+else (no)
+  :Fill registration form;
+  :Submit registration;
+endif
+|System|
+if (Credentials/validation valid?) then (yes)
+  :Create session (JWT);
+  |User|
+  :Access account;
+else (no)
+  :Show validation/auth error;
+  |User|
+  :Retry authentication;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 06 - Enter Shipping Address and Location
+|User|
+start
+:Open checkout shipping step;
+:Provide contact and address;
+:Select shipping country and district;
+|System|
+:Validate location and shipping availability;
+if (Location serviceable?) then (yes)
+  :Calculate shipping charge;
+  |User|
+  :Confirm shipping details;
+else (no)
+  :Show unsupported location message;
+  |User|
+  :Edit shipping location;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 07 - Review and Place Order
+|User|
+start
+:Open order review step;
+:Verify items, shipping, and totals;
+if (Need changes?) then (yes)
+  :Return to cart/checkout step;
+  :Update details;
+endif
+:Click "Place Order";
+|System|
+:Create pending order record;
+|User|
+:Continue to payment step;
+stop
+
+@enduml
+
+@startuml
+
+title 08 - Pay via SSLCommerz
+|User|
+start
+:Choose SSLCommerz payment;
+|System|
+:Redirect to SSLCommerz gateway;
+|Gateway|
+:Process payment;
+if (Payment successful?) then (yes)
+  :Return success callback;
+  |System|
+  :Mark order as paid;
+  |User|
+  :View payment success screen;
+else (no)
+  :Return failure/cancel callback;
+  |System|
+  :Keep order unpaid;
+  |User|
+  :Retry or choose another method;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 09 - View Orders and Order Details
+|User|
+start
+:Open "My Orders" page;
+|System|
+:Load user's order list;
+if (Orders available?) then (yes)
+  |User|
+  :Select an order;
+  |System|
+  :Load order details and timeline;
+  |User|
+  :Review order information;
+else (no)
+  |User|
+  :View "No orders yet" message;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 10 - Cancel Order or Request Return
+|User|
+start
+:Open order details;
+if (Need cancel or return?) then (yes)
+  if (Order cancellable?) then (cancel)
+    :Submit cancellation reason;
+    |System|
+    :Record cancellation request;
+  else (return)
+    |User|
+    :Submit return reason;
+    |System|
+    :Create return request ticket;
+  endif
+  |User|
+  :Track request status;
+else (no)
+  :Keep order as is;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 11 - Admin Login to Dashboard
+|Admin|
+start
+:Open admin login page;
+:Enter admin credentials;
+|System|
+if (Admin authenticated?) then (yes)
+  :Grant admin token/session;
+  :Load dashboard summary;
+  |Admin|
+  :View metrics and quick actions;
+else (no)
+  :Show authentication error;
+  |Admin|
+  :Retry login;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 12 - Manage Categories and Products
+|Admin|
+start
+:Open product management module;
+if (Manage categories?) then (yes)
+  :Create/Edit/Delete category;
+endif
+:Create/Edit/Delete product;
+:Update price, stock, and status;
+|System|
+:Validate and persist changes;
+if (Save successful?) then (yes)
+  |Admin|
+  :See success confirmation;
+else (no)
+  |Admin|
+  :Resolve validation errors;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 13 - Upload Product Images
+|Admin|
+start
+:Open image upload panel;
+:Select product;
+:Upload image files;
+|System|
+:Validate type/size and store files;
+if (Upload successful?) then (yes)
+  :Attach image URLs to product;
+  |Admin|
+  :Preview updated gallery;
+else (no)
+  :Return upload error;
+  |Admin|
+  :Retry with valid files;
+endif
+stop
+
+@enduml
+
+@startuml
+
+title 14 - Manage Shipping and Customers
+|Admin|
+start
+:Open shipping/customer module;
+if (Shipping update needed?) then (yes)
+  :Create/Edit/Delete countries;
+  :Create/Edit/Delete districts;
+  :Set delivery rules/charges;
+endif
+:Open customer list;
+:View customer profiles and activity summary;
+stop
+
+@enduml
+
+@startuml
+
+title 15 - Manage Orders and Return Requests
+|Admin|
+start
+:Open order and return queues;
+:Inspect order/request details;
+if (Order action required?) then (yes)
+  :Update status/add note/cancel/refund;
+endif
+if (Return decision required?) then (yes)
+  :Approve or reject return request;
+endif
+|System|
+:Persist decisions and notify customer;
+|Admin|
+:Verify updated state in dashboard;
+stop
+
+@enduml

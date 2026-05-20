@@ -165,22 +165,71 @@ const Header = () => {
 
               {userInfo ? (
                 <div className="user-menu-wrap" style={{ position: "relative" }} onMouseEnter={(e) => e.currentTarget.classList.add('is-hovered')} onMouseLeave={(e) => e.currentTarget.classList.remove('is-hovered')}>
-                  <button type="button" className="tool-item icon-only" aria-label="Account">
-                    <UserRound size={18} />
-                  </button>
-                  <div className="account-dropdown browse-dropdown" style={{ display: "none", right: 0, left: "auto", minWidth: "150px" }}>
+                  <Link to="/profile" className="tool-item icon-only profile-trigger-btn" aria-label="Account">
+                    {userInfo.avatar ? (
+                      <img src={userInfo.avatar} alt={userInfo.name} className="header-avatar" />
+                    ) : (
+                      <UserRound size={18} />
+                    )}
+                  </Link>
+                  <div className="account-dropdown browse-dropdown" style={{ display: "none", right: 0, left: "auto", minWidth: "180px", paddingTop: "10px" }}>
+                    <div className="dropdown-gap-filler" style={{ position: 'absolute', top: '-10px', height: '10px', width: '100%' }}></div>
                     <ul className="browse-dropdown-list">
+                      <li className="dropdown-user-info">
+                        <p className="dropdown-user-name">{userInfo.name}</p>
+                        <p className="dropdown-user-email">{userInfo.email}</p>
+                      </li>
+                      <li className="dropdown-divider"></li>
+                      <li>
+                        <Link className="browse-dropdown-link" to="/profile">My Profile</Link>
+                      </li>
                       <li>
                         <Link className="browse-dropdown-link" to="/orders">My Orders</Link>
                       </li>
+                      <li className="dropdown-divider"></li>
                       <li>
-                        <button type="button" onClick={onLogout} className="browse-dropdown-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", font: "inherit" }}>Logout</button>
+                        <button type="button" onClick={onLogout} className="browse-dropdown-link logout-btn">Logout</button>
                       </li>
                     </ul>
                   </div>
                   <style>{`
                     .user-menu-wrap.is-hovered .account-dropdown {
                       display: block !important;
+                    }
+                    .header-avatar {
+                      width: 28px;
+                      height: 28px;
+                      border-radius: 8px;
+                      object-fit: cover;
+                    }
+                    .dropdown-user-info {
+                      padding: 0.75rem 1rem;
+                    }
+                    .dropdown-user-name {
+                      font-weight: 700;
+                      font-size: 0.9rem;
+                      color: var(--ink);
+                    }
+                    .dropdown-user-email {
+                      font-size: 0.75rem;
+                      color: var(--muted);
+                    }
+                    .dropdown-divider {
+                      height: 1px;
+                      background: var(--line);
+                      margin: 0.25rem 0.5rem;
+                    }
+                    .logout-btn {
+                      width: 100%;
+                      text-align: left;
+                      background: none;
+                      border: none;
+                      cursor: pointer;
+                      font: inherit;
+                      color: var(--danger) !important;
+                    }
+                    .profile-trigger-btn:hover {
+                      background: var(--surface-soft);
                     }
                   `}</style>
                 </div>

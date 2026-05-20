@@ -1,0 +1,72 @@
+@startuml
+
+title ToyKart - End-to-End Pure Activity Diagram
+
+start
+if (Has account?) then (yes)
+  :Login;
+else (no)
+  :Register;
+  :Login;
+endif
+
+:Browse collection;
+:Search by keyword/category;
+:Open product details;
+:Add/update cart items;
+
+if (Proceed to checkout?) then (yes)
+  :Open checkout;
+else (no)
+  stop
+endif
+
+:Enter shipping and contact info;
+:Validate shipping country/district;
+if (Shipping location available?) then (yes)
+  :Calculate shipping and total;
+else (no)
+  :Update shipping location;
+  :Re-validate location;
+endif
+
+:Place order;
+:Create order record (pending);
+
+if (Payment method = SSLCommerz?) then (yes)
+  :Initialize SSLCommerz session;
+  :Process transaction;
+  if (Payment success?) then (yes)
+    :Mark order paid;
+  else (no)
+    :Keep order unpaid;
+  endif
+else (no - COD)
+  :Keep payment pending (COD);
+endif
+
+:View My Orders;
+:Open Order Action Center;
+if (Need cancel?) then (yes)
+  :Submit cancel request;
+  :Apply cancellation if eligible;
+else (no)
+  :Skip cancellation;
+endif
+
+if (Need return/refund?) then (yes)
+  :Submit return/refund request;
+  :Create return request ticket;
+else (no)
+  :Skip return request;
+endif
+
+:Login to admin panel;
+:Manage categories/products/images;
+:Manage shipping countries/districts;
+:Manage orders (status/notes/cancel/refund/tracking);
+:Review return requests and approve/reject;
+:Persist updates and notify customer;
+
+stop
+@enduml

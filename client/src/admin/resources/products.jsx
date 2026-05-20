@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Box,
   Chip,
@@ -38,8 +39,38 @@ import {
   useInput,
   useNotify
 } from "react-admin";
+import { useFormContext, useWatch } from "react-hook-form";
 import api from "../../api";
 import { AdminFormPageLayout, AdminFormSection } from "../components/AdminFormChrome";
+
+const AutoGenerateFields = () => {
+  const { setValue, getValues } = useFormContext();
+  const name = useWatch({ name: "name" });
+  const [lastProcessedName, setLastProcessedName] = useState("");
+
+  useEffect(() => {
+    if (!name || name === lastProcessedName) return;
+    
+    setLastProcessedName(name);
+    const slug = name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+    
+    // Auto populate slug if empty or if it was previously auto-filled
+    const currentSlug = getValues("slug");
+    if (!currentSlug || currentSlug.includes("-auto-")) {
+       setValue("slug", slug);
+    }
+
+    // Auto populate SKU if empty
+    const currentSku = getValues("sku");
+    if (!currentSku) {
+      const prefix = name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "X");
+      const random = Math.floor(1000 + Math.random() * 9000);
+      setValue("sku", `${prefix}-${random}`);
+    }
+  }, [name, setValue, getValues, lastProcessedName]);
+
+  return null;
+};
 
 const scrollToSection = (id) => {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -133,7 +164,7 @@ const ProductImageInput = (props) => {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const { data } = await api.post("/admin/upload", fd);
+      const { data } = await api.post("admin/upload", fd);
       field.onChange(data.url);
       notify("Image uploaded", { type: "success" });
     } catch (err) {
@@ -408,8 +439,13 @@ const ProductFormFields = ({ mode }) => (
 );
 
 export const ProductList = () => (
-  <List actions={<ListActions />} perPage={25} sort={{ field: "createdAt", order: "DESC" }}>
-    <Datagrid rowClick="edit" bulkActionButtons={false}>
+  <List
+    actions={<ListActions />}
+    perPage={25}
+    sort={{ field: "createdAt", order: "DESC" }}
+    filters={[<TextInput key="q" source="q" label="Search" alwaysOn resettable />]}
+  >
+    <Datagrid rowClick="edit">
       <TextField source="name" />
       <FunctionField
         label="SKU"
@@ -489,6 +525,7 @@ export const ProductCreate = () => {
   return (
     <Create>
       <SimpleForm toolbar={false} defaultValues={defaultProductValues(firstId)}>
+        <AutoGenerateFields />
         <ProductFormFields mode="create" />
       </SimpleForm>
     </Create>

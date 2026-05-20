@@ -1,0 +1,196 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+' ToyKart ER Diagram (derived from server/src/models)
+
+entity "User" as User {
+  * _id : ObjectId <<PK>>
+  --
+  name : String
+  email : String <<UNIQUE>>
+  phone : String
+  password : String
+  isAdmin : Boolean
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "Category" as Category {
+  * _id : ObjectId <<PK>>
+  --
+  name : String
+  slug : String <<UNIQUE>>
+  description : String
+  isActive : Boolean
+  sortOrder : Number
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "Product" as Product {
+  * _id : ObjectId <<PK>>
+  --
+  category : ObjectId <<FK Category._id>>
+  name : String
+  slug : String <<UNIQUE>>
+  sku : String <<UNIQUE>>
+  description : String
+  image : String
+  gallery : String[]
+  brand : String
+  manufacturerLocation : String
+  countryOfOrigin : String
+  subcategory : String
+  ageGroup : Enum(0-2,3-5,6-8,9-12,13+)
+  material : String
+  safetyCertifications : String[]
+  tags : String[]
+  price : Number
+  compareAtPrice : Number
+  currency : Enum(BDT)
+  countInStock : Number
+  soldCount : Number
+  isFeatured : Boolean
+  newArrival : Boolean
+  status : Enum(active,inactive,discontinued)
+  rating : Number
+  numReviews : Number
+  dimensionsCm.length : Number
+  dimensionsCm.width : Number
+  dimensionsCm.height : Number
+  weightGrams : Number
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "ShippingCountry" as ShippingCountry {
+  * _id : ObjectId <<PK>>
+  --
+  name : String <<UNIQUE>>
+  isoCode : String <<UNIQUE,sparse>>
+  isEnabled : Boolean
+  sortOrder : Number
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "ShippingDistrict" as ShippingDistrict {
+  * _id : ObjectId <<PK>>
+  --
+  country : ObjectId <<FK ShippingCountry._id>>
+  name : String
+  isEnabled : Boolean
+  sortOrder : Number
+  createdAt : Date
+  updatedAt : Date
+  <<UNIQUE(country,name)>>
+}
+
+entity "Order" as Order {
+  * _id : ObjectId <<PK>>
+  --
+  user : ObjectId <<FK User._id>>
+  paymentMethod : Enum(CashOnDelivery,SSLCommerz)
+  itemsPrice : Number
+  taxPrice : Number
+  shippingPrice : Number
+  totalPrice : Number
+  status : Enum(pending,confirmed,processing,shipped,delivered,cancelled,returned)
+  isPaid : Boolean
+  paidAt : Date
+  paymentReference : String
+  isDelivered : Boolean
+  deliveredAt : Date
+  cancelReason : String
+  cancelledAt : Date
+  internalMemo : String
+  customerDeletedAt : Date
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "OrderItem" as OrderItem {
+  * (embedded) : Order.orderItems[]
+  --
+  product : ObjectId <<FK Product._id>>
+  name : String
+  qty : Number
+  image : String
+  price : Number
+}
+
+entity "OrderStatusHistory" as OrderStatusHistory {
+  * (embedded) : Order.statusHistory[]
+  --
+  from : Enum(pending,confirmed,processing,shipped,delivered,cancelled,returned)
+  to : Enum(pending,confirmed,processing,shipped,delivered,cancelled,returned)
+  note : String
+  changedAt : Date
+  changedBy.user : ObjectId <<FK User._id, nullable>>
+  changedBy.role : Enum(system,customer,admin)
+  changedBy.name : String
+  changedBy.email : String
+}
+
+entity "OrderAdminNote" as OrderAdminNote {
+  * (embedded) : Order.adminNotes[]
+  --
+  body : String
+  isPrivate : Boolean
+  createdAt : Date
+  createdBy.user : ObjectId <<FK User._id, nullable>>
+  createdBy.role : Enum(system,customer,admin)
+  createdBy.name : String
+  createdBy.email : String
+}
+
+entity "ReturnRequest" as ReturnRequest {
+  * _id : ObjectId <<PK>>
+  --
+  order : ObjectId <<FK Order._id>>
+  user : ObjectId <<FK User._id>>
+  requestType : Enum(return_refund,refund_only,exchange)
+  status : Enum(requested,under_review,approved,rejected,more_info_required)
+  customerReason : String
+  adminDecisionNote : String
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "ReturnItem" as ReturnItem {
+  * (embedded) : ReturnRequest.items[]
+  --
+  product : ObjectId <<FK Product._id, nullable>>
+  name : String
+  qty : Number
+  reason : String
+}
+
+entity "ReturnTimelineEntry" as ReturnTimelineEntry {
+  * (embedded) : ReturnRequest.timeline[]
+  --
+  status : Enum(requested,under_review,approved,rejected,more_info_required)
+  note : String
+  actorRole : Enum(customer,admin,system)
+  actorName : String
+  createdAt : Date
+}
+
+Category ||--o{ Product : categorizes
+ShippingCountry ||--o{ ShippingDistrict : has
+User ||--o{ Order : places
+Order ||--|{ OrderItem : contains
+Product ||--o{ OrderItem : referenced_by
+Order ||--o{ OrderStatusHistory : tracks
+User ||--o{ OrderStatusHistory : actor(optional)
+Order ||--o{ OrderAdminNote : annotated_by
+User ||--o{ OrderAdminNote : author(optional)
+Order ||--o{ ReturnRequest : may_have
+User ||--o{ ReturnRequest : submits
+ReturnRequest ||--o{ ReturnItem : includes
+Product ||--o{ ReturnItem : referenced_by
+ReturnRequest ||--o{ ReturnTimelineEntry : tracks
+
+@enduml

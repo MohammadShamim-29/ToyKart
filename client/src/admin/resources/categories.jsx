@@ -122,8 +122,12 @@ const CategoryFormFields = ({ isCreate = false }) => (
 );
 
 export const CategoryList = () => (
-  <List actions={<ListActions />} sort={{ field: "sortOrder", order: "ASC" }}>
-    <Datagrid rowClick="edit" bulkActionButtons={false}>
+  <List
+    actions={<ListActions />}
+    sort={{ field: "sortOrder", order: "ASC" }}
+    filters={[<TextInput key="q" source="q" label="Search" alwaysOn resettable />]}
+  >
+    <Datagrid rowClick="edit">
       <TextField source="name" />
       <TextField source="slug" />
       <NumberField source="sortOrder" label="Sort" />

@@ -1,0 +1,126 @@
+@startuml
+hide circle
+skinparam classAttributeIconSize 0
+
+caption Step 4/5 - 3NF (remove transitive dependency, align to ToyKart model)
+
+entity "User" as User {
+  * user_id
+  --
+  name
+  email
+  phone
+  password
+  isAdmin
+  createdAt
+  updatedAt
+}
+
+entity "Category" as Category {
+  * category_id
+  --
+  name
+  slug
+  description
+  isActive
+  sortOrder
+}
+
+entity "Product" as Product {
+  * product_id
+  --
+  category_id
+  name
+  slug
+  sku
+  description
+  price
+  compareAtPrice
+  currency
+  countInStock
+  status
+}
+
+entity "ShippingCountry" as ShippingCountry {
+  * country_id
+  --
+  name
+  isoCode
+  isEnabled
+}
+
+entity "ShippingDistrict" as ShippingDistrict {
+  * district_id
+  --
+  country_id
+  name
+  isEnabled
+}
+
+entity "Order" as Ord {
+  * order_id
+  --
+  user_id
+  district_id
+  paymentMethod
+  itemsPrice
+  taxPrice
+  shippingPrice
+  totalPrice
+  status
+  isPaid
+  paidAt
+  isDelivered
+  deliveredAt
+  createdAt
+}
+
+entity "OrderItem" as OrderItem {
+  * order_id
+  * product_id
+  --
+  qty
+  price
+  name_snapshot
+  image_snapshot
+}
+
+entity "ReturnRequest" as ReturnRequest {
+  * return_id
+  --
+  order_id
+  user_id
+  requestType
+  status
+  customerReason
+  adminDecisionNote
+  createdAt
+}
+
+entity "ReturnItem" as ReturnItem {
+  * return_id
+  * product_id
+  --
+  qty
+  reason
+}
+
+Category ||--o{ Product
+ShippingCountry ||--o{ ShippingDistrict
+User ||--o{ Ord
+ShippingDistrict ||--o{ Ord
+Ord ||--o{ OrderItem
+Product ||--o{ OrderItem
+Ord ||--o{ ReturnRequest
+User ||--o{ ReturnRequest
+ReturnRequest ||--o{ ReturnItem
+Product ||--o{ ReturnItem
+
+note bottom of Ord
+3NF claim:
+- Each non-key attribute depends on the key, the whole key,
+  and nothing but the key.
+- Product/category/customer facts are stored once and referenced by FK.
+end note
+
+@enduml

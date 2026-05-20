@@ -1,0 +1,37 @@
+@startuml
+hide circle
+skinparam classAttributeIconSize 0
+
+caption Step 1 - UNF (single wide table with repeating groups)
+
+entity "ORDER_UNF" as ORDER_UNF {
+  * order_id
+  --
+  order_date
+  order_status
+  paymentMethod
+  isPaid
+  customer_id
+  customer_name
+  customer_email
+  customer_phone
+  shipping_firstName
+  shipping_address
+  shipping_city
+  shipping_country
+  shipping_postalCode
+  shipping_phone
+  shipping_email
+  [items{ product_id, product_name, category_name, qty, unit_price }]
+  [returns{ return_id, requestType, return_status, return_reason, return_items{product_id, qty, reason} }]
+  [status_history{from_status,to_status,changedAt,actor_name,actor_role}]
+}
+
+note right of ORDER_UNF
+UNF issues:
+1) Repeating groups (items, returns, history)
+2) Multi-valued attributes
+3) Update/insert/delete anomalies
+end note
+
+@enduml

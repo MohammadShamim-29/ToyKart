@@ -1,0 +1,140 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+' PlantText-compatible ER diagram for ToyKart
+' (Chen-style @startchen is not supported in many PlantText deployments)
+
+title ER Diagram of ToyKart
+
+entity "USER" as USER {
+  * _id : ObjectId <<PK>>
+  --
+  name : String
+  email : String <<UNIQUE>>
+  phone : String
+  password : String
+  isAdmin : Boolean
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "CATEGORY" as CATEGORY {
+  * _id : ObjectId <<PK>>
+  --
+  name : String
+  slug : String <<UNIQUE>>
+  description : String
+  isActive : Boolean
+  sortOrder : Number
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "PRODUCT" as PRODUCT {
+  * _id : ObjectId <<PK>>
+  --
+  category : ObjectId <<FK CATEGORY._id>>
+  name : String
+  slug : String <<UNIQUE>>
+  sku : String <<UNIQUE>>
+  description : String
+  image : String
+  gallery : String[]
+  brand : String
+  subcategory : String
+  ageGroup : String
+  price : Number
+  compareAtPrice : Number
+  currency : String
+  countInStock : Number
+  soldCount : Number
+  status : String
+  rating : Number
+  numReviews : Number
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "SHIPPING_COUNTRY" as SHIPPING_COUNTRY {
+  * _id : ObjectId <<PK>>
+  --
+  name : String <<UNIQUE>>
+  isoCode : String <<UNIQUE,sparse>>
+  isEnabled : Boolean
+  sortOrder : Number
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "SHIPPING_DISTRICT" as SHIPPING_DISTRICT {
+  * _id : ObjectId <<PK>>
+  --
+  country : ObjectId <<FK SHIPPING_COUNTRY._id>>
+  name : String
+  isEnabled : Boolean
+  sortOrder : Number
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "ORDER" as ORD {
+  * _id : ObjectId <<PK>>
+  --
+  user : ObjectId <<FK USER._id>>
+  paymentMethod : String
+  itemsPrice : Number
+  taxPrice : Number
+  shippingPrice : Number
+  totalPrice : Number
+  status : String
+  isPaid : Boolean
+  paidAt : Date
+  isDelivered : Boolean
+  deliveredAt : Date
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "ORDER_ITEM" as ORDER_ITEM {
+  --
+  product : ObjectId <<FK PRODUCT._id>>
+  name : String
+  qty : Number
+  image : String
+  price : Number
+}
+
+entity "RETURN_REQUEST" as RETURN_REQUEST {
+  * _id : ObjectId <<PK>>
+  --
+  order : ObjectId <<FK ORDER._id>>
+  user : ObjectId <<FK USER._id>>
+  requestType : String
+  status : String
+  customerReason : String
+  adminDecisionNote : String
+  createdAt : Date
+  updatedAt : Date
+}
+
+entity "RETURN_ITEM" as RETURN_ITEM {
+  --
+  product : ObjectId <<FK PRODUCT._id>>
+  name : String
+  qty : Number
+  reason : String
+}
+
+CATEGORY ||--o{ PRODUCT : categorizes
+USER ||--o{ ORD : places
+ORD ||--|{ ORDER_ITEM : contains
+PRODUCT ||--o{ ORDER_ITEM : refers
+SHIPPING_COUNTRY ||--o{ SHIPPING_DISTRICT : has
+USER ||--o{ RETURN_REQUEST : submits
+ORD ||--o{ RETURN_REQUEST : for
+RETURN_REQUEST ||--o{ RETURN_ITEM : includes
+PRODUCT ||--o{ RETURN_ITEM : return_of
+
+@enduml

@@ -1,0 +1,80 @@
+@startuml
+hide circle
+skinparam classAttributeIconSize 0
+
+caption Step 3 - 2NF (remove partial dependency from composite-key tables)
+
+entity "CUSTOMER_2NF" as CUSTOMER_2NF {
+  * customer_id
+  --
+  customer_name
+  customer_email
+  customer_phone
+}
+
+entity "CATEGORY_2NF" as CATEGORY_2NF {
+  * category_id
+  --
+  category_name
+}
+
+entity "PRODUCT_2NF" as PRODUCT_2NF {
+  * product_id
+  --
+  category_id
+  product_name
+  unit_price
+}
+
+entity "ORDER_2NF" as ORDER_2NF {
+  * order_id
+  --
+  customer_id
+  order_date
+  order_status
+  paymentMethod
+  isPaid
+  shipping_firstName
+  shipping_address
+  shipping_city
+  shipping_country
+  shipping_postalCode
+  shipping_phone
+  shipping_email
+}
+
+entity "ORDER_ITEM_2NF" as ORDER_ITEM_2NF {
+  * order_id
+  * product_id
+  --
+  qty
+  unit_price_at_order
+}
+
+entity "RETURN_REQUEST_2NF" as RETURN_REQUEST_2NF {
+  * return_id
+  --
+  order_id
+  customer_id
+  requestType
+  return_status
+  return_reason
+}
+
+entity "RETURN_ITEM_2NF" as RETURN_ITEM_2NF {
+  * return_id
+  * product_id
+  --
+  qty
+  reason
+}
+
+CUSTOMER_2NF ||--o{ ORDER_2NF
+CATEGORY_2NF ||--o{ PRODUCT_2NF
+ORDER_2NF ||--o{ ORDER_ITEM_2NF
+PRODUCT_2NF ||--o{ ORDER_ITEM_2NF
+ORDER_2NF ||--o{ RETURN_REQUEST_2NF
+RETURN_REQUEST_2NF ||--o{ RETURN_ITEM_2NF
+PRODUCT_2NF ||--o{ RETURN_ITEM_2NF
+
+@enduml

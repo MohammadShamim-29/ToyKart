@@ -20,8 +20,12 @@ const statusChoices = [
 ];
 
 export const ReturnRequestList = () => (
-  <List sort={{ field: "createdAt", order: "DESC" }} perPage={25}>
-    <Datagrid rowClick="edit" bulkActionButtons={false}>
+  <List
+    sort={{ field: "createdAt", order: "DESC" }}
+    perPage={25}
+    filters={[<TextInput key="q" source="q" label="Search" alwaysOn resettable />]}
+  >
+    <Datagrid rowClick="edit">
       <FunctionField label="Order" render={(record) => String(record.order?._id || "").slice(-6).toUpperCase()} />
       <FunctionField label="Customer" render={(record) => record.user?.name || record.user?.email || "-"} />
       <FunctionField label="Type" render={(record) => record.requestType || "return_refund"} />

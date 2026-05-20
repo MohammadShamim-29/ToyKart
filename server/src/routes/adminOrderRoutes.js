@@ -4,6 +4,7 @@ import {
   cancelAdminOrder,
   getAdminOrder,
   listAdminOrders,
+  getAdminOrderAnalytics,
   refundAdminOrder,
   updateAdminOrder,
   updateAdminOrderStatus
@@ -15,6 +16,7 @@ const router = express.Router();
 
 router.use(protect, admin);
 
+router.get("/analytics", getAdminOrderAnalytics);
 router.route("/").get(listAdminOrders);
 router.route("/:id").get(getAdminOrder).put(updateAdminOrder);
 router.patch("/:id/status", updateAdminOrderStatus);

@@ -29,7 +29,9 @@ const sanitizeAuthUser = (user) => ({
   name: user.name,
   email: user.email,
   phone: user.phone || "",
+  avatar: user.avatar || "",
   isAdmin: user.isAdmin,
+  createdAt: user.createdAt,
   token: generateToken(user._id)
 });
 
@@ -126,4 +128,62 @@ export const loginAdminUser = async (req, res) => {
 
 export const getMe = async (req, res) => {
   return res.json(req.user);
+};
+
+export const updateUserProfile = async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const name = normalizeName(req.body?.name);
+  const phone = normalizePhone(req.body?.phone);
+  const avatar = String(req.body?.avatar || "").trim();
+
+  if (name) {
+    if (name.length < 2 || name.length > 60) {
+      return res.status(400).json({ message: "Name must be between 2 and 60 characters" });
+    }
+    user.name = name;
+  }
+
+  if (phone) {
+    if (!/^\+?[0-9\s()-]{7,20}$/.test(phone)) {
+      return res.status(400).json({ message: "Please provide a valid phone number" });
+    }
+    user.phone = phone;
+  }
+
+  if (avatar !== undefined) {
+    user.avatar = avatar;
+  }
+
+  const updatedUser = await user.save();
+  return res.json(sanitizeAuthUser(updatedUser));
+};
+
+export const updateUserPassword = async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const currentPassword = String(req.body?.currentPassword || "");
+  const newPassword = String(req.body?.newPassword || "");
+
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+  if (!isMatch) {
+    return res.status(401).json({ message: "Current password is incorrect" });
+  }
+
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
+  }
+
+  const salt = await bcrypt.genSalt(12);
+  user.password = await bcrypt.hash(newPassword, salt);
+  await user.save();
+
+  return res.json({ message: "Password updated successfully" });
 };
