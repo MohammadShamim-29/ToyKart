@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Button,
   CircularProgress,
@@ -7,16 +7,13 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  Stack
+  Stack,
+  Chip
 } from "@mui/material";
 import { useNotify } from "react-admin";
 import refundAPI from "../../api/refundAPI";
 
-/**
- * Approve Cancellation Button Component
- * Allows admin to approve order cancellations
- */
-export const ApproveCancellationButton = ({
+const ApproveCancellationButton = ({
   orderId,
   order,
   onSuccess,
@@ -30,22 +27,8 @@ export const ApproveCancellationButton = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Only show if cancellation is pending approval
-  const isVisible =
-    order?.status === "cancelled" &&
-    !order?.cancellationApprovedAt;
-
-  const handleClickOpen = () => {
-    if (isVisible) {
-      setOpen(true);
-      setError(null);
-    }
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-    setError(null);
-  };
+  const isVisible = order?.status === "cancelled" && !order?.cancellationApprovedAt;
+  const isApproved = Boolean(order?.cancellationApprovedAt);
 
   const handleApprove = async () => {
     setLoading(true);
@@ -53,10 +36,8 @@ export const ApproveCancellationButton = ({
 
     try {
       const result = await refundAPI.approveCancellation(orderId);
-
-      notify("Cancellation approved successfully", { type: "success" });
-      handleClose();
-
+      notify("Cancellation approved — refund can now be processed", { type: "success" });
+      setOpen(false);
       if (onSuccess) {
         onSuccess(result);
       }
@@ -69,6 +50,18 @@ export const ApproveCancellationButton = ({
     }
   };
 
+  if (isApproved && order?.status === "cancelled") {
+    return (
+      <Chip
+        label="Cancellation approved"
+        color="success"
+        size="small"
+        variant="outlined"
+        sx={{ width: fullWidth ? "100%" : undefined }}
+      />
+    );
+  }
+
   if (!isVisible) {
     return null;
   }
@@ -80,42 +73,32 @@ export const ApproveCancellationButton = ({
         size={size}
         fullWidth={fullWidth}
         disabled={disabled || loading}
-        onClick={handleClickOpen}
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
         color="success"
       >
         {loading ? <CircularProgress size={20} /> : "Approve Cancellation"}
       </Button>
 
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Approve Order Cancellation</DialogTitle>
+      <Dialog open={open} onClose={() => !loading && setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Approve order cancellation</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Stack spacing={2}>
-            {error && <Alert severity="error">{error}</Alert>}
-
-            <Alert severity="info">
-              Reason: {order?.cancelReason || "No reason provided"}
-            </Alert>
-
+            {error ? <Alert severity="error">{error}</Alert> : null}
+            <Alert severity="info">Reason: {order?.cancelReason || "No reason provided"}</Alert>
             <Alert severity="warning">
-              By approving this cancellation, you acknowledge that:
-              <ul>
-                <li>Customer can request a refund</li>
-                <li>Inventory has been or will be restored</li>
-                <li>Cancellation is final and irreversible</li>
-              </ul>
+              After approval, the Process Refund button will activate for paid SSLCommerz orders. The SSLCommerz
+              transaction ID is picked up automatically from the order.
             </Alert>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} disabled={loading}>
+          <Button onClick={() => setOpen(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button
-            onClick={handleApprove}
-            variant="contained"
-            color="success"
-            disabled={loading}
-          >
+          <Button onClick={handleApprove} variant="contained" color="success" disabled={loading}>
             {loading ? <CircularProgress size={20} /> : "Approve"}
           </Button>
         </DialogActions>

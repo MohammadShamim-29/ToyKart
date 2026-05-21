@@ -33,9 +33,9 @@ import {
   useRefresh
 } from "react-admin";
 import api from "../../api";
-import refundAPI from "../../api/refundAPI";
 import { AdminFormPageLayout, AdminFormSection } from "../components/AdminFormChrome";
 import ProcessRefundButton from "../components/ProcessRefundButton";
+import ReturnRefundPanel from "../components/ReturnRefundPanel";
 import RefundStatusChip from "../components/RefundStatusChip";
 
 const statusChoices = [
@@ -586,42 +586,6 @@ const RefundRejectForm = () => {
   );
 };
 
-const RefundProcessForm = () => {
-  const record = useRecordContext();
-  const notify = useNotify();
-  const refresh = useRefresh();
-  const [txnId, setTxnId] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  if (!record || record.status !== "REFUND_APPROVED") return null;
-
-  const handleProcess = async () => {
-    if (!txnId.trim()) { notify("Transaction ID is required", { type: "error" }); return; }
-    setBusy(true);
-    try {
-      await api.post(`admin/returns/${record.id}/process-refund`, { transactionId: txnId.trim() });
-      notify("Refund processed", { type: "success" });
-      refresh();
-    } catch (err) {
-      notify(err.response?.data?.message || "Failed", { type: "error" });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Stack spacing={1.5} sx={{ mt: 2 }}>
-      <Divider />
-      <Typography variant="subtitle2" fontWeight={600} color="success.main">Process Refund</Typography>
-      <MuiTextField size="small" label="Transaction ID" fullWidth value={txnId}
-        onChange={(e) => setTxnId(e.target.value)} />
-      <Button variant="contained" color="success" onClick={handleProcess} disabled={busy}>
-        {busy ? "Processing..." : "Process Refund"}
-      </Button>
-    </Stack>
-  );
-};
-
 const ReturnToCustomerForm = () => {
   const record = useRecordContext();
   const notify = useNotify();
@@ -845,8 +809,8 @@ const ReturnFormFields = () => (
 
     <AdminFormSection sectionId="section-return-refund" title="Refund" description="Approve, reject, and process refunds.">
       <RefundApproveForm />
-      <RefundProcessForm />
       <RefundRejectForm />
+      <ReturnRefundPanel />
     </AdminFormSection>
 
     <AdminFormSection sectionId="section-return-replacement" title="Replacement" description="Free replacement for damaged or wrong items.">
@@ -889,7 +853,13 @@ export const ReturnRequestList = () => (
       />
       <FunctionField
         label="Refund Status"
-        render={(record) => <RefundStatusChip refund={{ status: record.order?.refundStatus, refundRefId: record.order?.refundRefId }} order={record.order} />}
+        render={(record) => (
+          <RefundStatusChip
+            refund={{ status: record.order?.refundStatus, refundRefId: record.order?.refundRefId }}
+            order={record.order}
+            returnRequest={record}
+          />
+        )}
       />
       <DateField source="createdAt" label="Date" showTime />
       <FunctionField
@@ -903,22 +873,25 @@ export const ReturnRequestList = () => (
 
 const ReturnRowActions = ({ record }) => {
   const refresh = useRefresh();
-
-  const handleRefundSuccess = () => {
-    refresh();
-  };
-
-  // Get the order from the return request
   const order = record.order;
+  const finalAmount = Number(record.refundDetails?.finalRefundAmount ?? order?.totalPrice ?? 0);
+
+  const orderId = order?.id || order?._id;
+  if (record.status !== "REFUND_APPROVED" || !orderId) return null;
+  if (order.paymentMethod !== "SSLCommerz" || !order.isPaid || order.refundStatus === "success") {
+    return null;
+  }
 
   return (
     <ProcessRefundButton
-      orderId={order?._id}
+      orderId={orderId}
       order={order}
-      onSuccess={handleRefundSuccess}
+      returnRequest={record}
+      refundAmount={finalAmount}
+      sourceType="return"
+      onSuccess={() => refresh()}
       size="small"
       variant="outlined"
-      fullWidth
     />
   );
 };

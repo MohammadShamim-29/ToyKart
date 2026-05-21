@@ -98,7 +98,11 @@ const HomePage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const featuredProducts = useMemo(() => products.filter((product) => product.isFeatured).slice(0, 6), [products]);
+  const featuredProducts = useMemo(() => {
+    const featured = products.filter((product) => product.isFeatured);
+    const pick = featured.length > 0 ? featured : products;
+    return pick.slice(0, 6);
+  }, [products]);
 
   const currentSlide = heroSlides[activeSlide];
 
@@ -209,7 +213,14 @@ const HomePage = () => {
         {loading && <p className="notice">Loading products...</p>}
         {error && <p className="error">{error}</p>}
 
-        {!loading && !error && (
+        {!loading && !error && featuredProducts.length === 0 && (
+          <p className="notice">
+            No products in the catalog yet. Add products in the admin panel (status must be Active), or run{" "}
+            <code>npm run seed --workspace server</code> to load sample data.
+          </p>
+        )}
+
+        {!loading && !error && featuredProducts.length > 0 && (
           <div className="grid cards-grid">
             {featuredProducts.map((product) => (
               <article className="card product-card product-card-opal" key={product._id}>

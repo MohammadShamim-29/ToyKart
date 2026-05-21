@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Button,
   Dialog,
@@ -9,19 +9,18 @@ import {
   CircularProgress,
   Alert,
   Stack,
-  Typography,
-  Chip
+  Typography
 } from "@mui/material";
 import { useNotify } from "react-admin";
 import refundAPI from "../../api/refundAPI";
 
-/**
- * Process Refund Button Component
- * Allows admin to process refunds for orders
- */
-export const ProcessRefundButton = ({
+const ProcessRefundButton = ({
   orderId,
   order,
+  returnRequest,
+  refundAmount,
+  sourceType = "cancellation",
+  defaultRemarks,
   onSuccess,
   disabled = false,
   variant = "contained",
@@ -31,52 +30,66 @@ export const ProcessRefundButton = ({
   const notify = useNotify();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [remarks, setRemarks] = useState("");
+  const [remarks, setRemarks] = useState(
+    defaultRemarks ||
+      (sourceType === "return"
+        ? "Return approved — refund via SSLCommerz"
+        : "Order cancelled — refund via SSLCommerz")
+  );
   const [error, setError] = useState(null);
 
-  // Check if order is eligible for refund
-  const isEligible =
+  const bankTxn = order?.bankTranId || order?.paymentReference;
+  const amount =
+    sourceType === "return"
+      ? Number(refundAmount ?? returnRequest?.refundDetails?.finalRefundAmount ?? order?.totalPrice ?? 0)
+      : Number(order?.totalPrice ?? 0);
+
+  const isCancellationEligible =
+    order?.status === "cancelled" &&
+    Boolean(order?.cancellationApprovedAt) &&
     order?.paymentMethod === "SSLCommerz" &&
     order?.isPaid &&
-    !order?.refundStatus?.includes("success");
+    order?.refundStatus !== "success" &&
+    Boolean(bankTxn);
 
-  const handleClickOpen = () => {
-    if (isEligible) {
-      setOpen(true);
-      setError(null);
-      setRemarks("");
-    }
-  };
+  const isReturnEligible =
+    returnRequest?.status === "REFUND_APPROVED" &&
+    order?.paymentMethod === "SSLCommerz" &&
+    order?.isPaid &&
+    order?.refundStatus !== "success" &&
+    Boolean(bankTxn) &&
+    amount > 0;
 
-  const handleClose = () => {
-    setOpen(false);
-    setError(null);
-    setRemarks("");
-  };
+  const isEligible = sourceType === "return" ? isReturnEligible : isCancellationEligible;
 
   const handleProcessRefund = async () => {
-    if (!remarks.trim()) {
-      setError("Please provide refund remarks");
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
-      const result = await refundAPI.processRefund(orderId, {
-        remarks: remarks.trim(),
-        sourceType: "cancellation"
-      });
+      const payload = {
+        remarks: remarks.trim() || defaultRemarks || "Refund via SSLCommerz",
+        sourceType
+      };
+      if (sourceType === "return" && returnRequest?.id) {
+        payload.returnRequestId = returnRequest.id;
+        payload.refundAmount = amount;
+      }
+
+      const result = await refundAPI.processRefund(orderId, payload);
 
       notify("Refund processed successfully", { type: "success" });
-      handleClose();
+      setOpen(false);
 
       if (onSuccess) {
         onSuccess(result);
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || "Failed to process refund";
+      const errorMessage =
+        err.response?.data?.message ||
+        (Array.isArray(err.response?.data?.errors) ? err.response.data.errors.join(". ") : null) ||
+        err.message ||
+        "Failed to process refund";
       setError(errorMessage);
       notify(errorMessage, { type: "error" });
     } finally {
@@ -95,57 +108,51 @@ export const ProcessRefundButton = ({
         size={size}
         fullWidth={fullWidth}
         disabled={disabled || loading}
-        onClick={handleClickOpen}
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
         color="warning"
       >
         {loading ? <CircularProgress size={20} /> : "Process Refund"}
       </Button>
 
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Process Refund</DialogTitle>
+      <Dialog open={open} onClose={() => !loading && setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Process SSLCommerz Refund</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Stack spacing={2}>
-            {error && <Alert severity="error">{error}</Alert>}
+            {error ? <Alert severity="error">{error}</Alert> : null}
 
-            <Alert severity="info">
-              Refund Amount: ৳{order?.totalPrice || 0}
+            <Alert severity="info">Refund amount: ৳{amount}</Alert>
+
+            <Alert severity="success">
+              <Typography variant="body2">
+                Transaction ID (auto-fetched): <strong>{bankTxn}</strong>
+              </Typography>
             </Alert>
 
-            {order?.bankTranId && (
-              <Alert severity="success">
-                <Typography variant="body2">
-                  Transaction ID: <strong>{order.bankTranId}</strong>
-                </Typography>
-              </Alert>
-            )}
-
             <TextField
-              label="Refund Remarks"
+              label="Refund remarks"
               multiline
               rows={3}
               fullWidth
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Enter reason for refund (optional)"
               disabled={loading}
             />
 
             <Alert severity="warning">
-              This action will process a refund through SSL Commerz gateway.
-              Please verify the order details before proceeding.
+              {sourceType === "return"
+                ? "This sends the approved return amount to SSLCommerz using the stored transaction ID, then marks the return as processed."
+                : "This sends a full refund to SSLCommerz using the stored transaction ID. The order will move to Cancelled · Refunded."}
             </Alert>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} disabled={loading}>
+          <Button onClick={() => setOpen(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button
-            onClick={handleProcessRefund}
-            variant="contained"
-            color="warning"
-            disabled={loading || !remarks.trim()}
-          >
+          <Button onClick={handleProcessRefund} variant="contained" color="warning" disabled={loading}>
             {loading ? <CircularProgress size={20} /> : "Confirm Refund"}
           </Button>
         </DialogActions>

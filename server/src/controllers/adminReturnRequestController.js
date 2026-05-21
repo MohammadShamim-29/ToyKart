@@ -2,18 +2,26 @@ import mongoose from "mongoose";
 import ReturnRequest from "../models/ReturnRequest.js";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
-import { sendPickupScheduled, sendRefundProcessed, sendReplacementShipped } from "../utils/mailer.js";
-
 const asTrimmed = (v) => String(v ?? "").trim();
 
 const mapRecord = (doc) => {
   const obj = typeof doc.toObject === "function" ? doc.toObject({ virtuals: false }) : doc;
-  return { ...obj, id: String(obj._id) };
+  const out = { ...obj, id: String(obj._id) };
+  if (out.order?._id) {
+    out.order = { ...out.order, id: String(out.order._id) };
+  }
+  if (out.user?._id) {
+    out.user = { ...out.user, id: String(out.user._id) };
+  }
+  return out;
 };
 
 export const listAdminReturnRequests = async (req, res) => {
+  const orderFields =
+    "_id itemsPrice shippingPrice taxPrice totalPrice status paymentMethod isPaid bankTranId paymentReference refundStatus refundRefId createdAt";
+
   const rows = await ReturnRequest.find()
-    .populate("order", "_id itemsPrice shippingPrice taxPrice totalPrice status createdAt")
+    .populate("order", orderFields)
     .populate("user", "name email")
     .sort({ createdAt: -1 });
   return res.json(rows.map((r) => mapRecord(r)));
@@ -25,8 +33,11 @@ export const getAdminReturnRequest = async (req, res) => {
     return res.status(400).json({ message: "Invalid return request id" });
   }
 
+  const orderFields =
+    "_id itemsPrice shippingPrice taxPrice totalPrice status paymentMethod isPaid bankTranId paymentReference refundStatus refundRefId createdAt";
+
   const row = await ReturnRequest.findById(id)
-    .populate("order", "_id itemsPrice shippingPrice taxPrice totalPrice status createdAt")
+    .populate("order", orderFields)
     .populate("user", "name email");
   if (!row) return res.status(404).json({ message: "Return request not found" });
   return res.json(mapRecord(row));
@@ -61,6 +72,7 @@ export const updateAdminReturnRequest = async (req, res) => {
   if (!row) return res.status(404).json({ message: "Return request not found" });
 
   const { status, note, adminNote } = req.body;
+  const previousStatus = row.status;
 
   if (status && status !== row.status) {
     // Validate transition
@@ -117,8 +129,12 @@ export const updateAdminReturnRequest = async (req, res) => {
   }
 
   await row.save();
-  await row.populate("order", "_id itemsPrice shippingPrice taxPrice totalPrice status createdAt");
+  await row.populate(
+    "order",
+    "_id itemsPrice shippingPrice taxPrice totalPrice status paymentMethod isPaid bankTranId paymentReference refundStatus refundRefId createdAt"
+  );
   await row.populate("user", "name email");
+
   return res.json(mapRecord(row));
 };
 
@@ -182,8 +198,6 @@ export const markPickedUp = async (req, res) => {
   }
 
   await row.save();
-  await row.populate("user", "name email");
-  sendPickupScheduled(row, row.user, row.pickupDetails);
   return res.json(mapRecord(row));
 };
 
@@ -304,8 +318,6 @@ export const processRefundFull = async (req, res) => {
   }
 
   await row.save();
-  await row.populate("user", "name email");
-  sendRefundProcessed(row, row.user);
   return res.json(mapRecord(row));
 };
 
@@ -448,8 +460,6 @@ export const markReplacementShipped = async (req, res) => {
   });
 
   await row.save();
-  await row.populate("user", "name email");
-  sendReplacementShipped(row, row.user, row.replacementDetails?.replacementOrder);
   return res.json(mapRecord(row));
 };
 

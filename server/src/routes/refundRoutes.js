@@ -23,7 +23,7 @@ router.post("/process/:orderId", protect, admin, processRefund);
 router.get("/status/:refundRefId", protect, getRefundStatus);
 
 // Get all refunds for an order
-router.get("/order/:orderId", protect, getOrderRefunds);
+router.get("/order/:orderId", protect, admin, getOrderRefunds);
 
 // Retry failed refund
 router.post("/retry/:refundRefId", protect, admin, retryFailedRefund);

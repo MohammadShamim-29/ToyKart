@@ -244,7 +244,7 @@ export const dataProvider = {
   getList: async (resource, params) => {
     const query = buildListQuery(params);
     if (resource === "cancelled-orders") {
-      query.status = "cancelled";
+      query.cancelledQueue = "1";
     }
     const { data } = await withDebug(
       "getList",

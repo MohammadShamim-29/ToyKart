@@ -32,7 +32,7 @@ Handles SSLCOMMERZ API communication:
 - `checkRefundStatus()` - Checks refund status from gateway
 - `validateRefundEligibility()` - Validates order for refund
 
-Key endpoint: `https://sandbox.sslcommerz.com/gwprocess/v4/refund.php`
+Key endpoint: `GET https://sandbox.sslcommerz.com/validator/api/merchantTransIDvalidationAPI.php` (with `bank_tran_id`, `refund_trans_id`, `refund_amount`, etc.)
 
 #### 3. **Refund Controller** (`server/src/controllers/refundController.js`)
 Implements business logic:

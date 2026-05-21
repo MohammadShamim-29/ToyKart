@@ -6,6 +6,7 @@ import {
   actorFromUser,
   appendAdminNote,
   canTransitionOrderStatus,
+  deriveDisplayStatus,
   derivePaymentStatus,
   ensureOrderLifecycleDefaults,
   humanOrderNumber,
@@ -13,7 +14,7 @@ import {
   ORDER_STATUSES,
   setOrderStatus
 } from "../utils/orderLifecycle.js";
-import { sendOrderShipped, sendOrderDelivered, sendOrderCancelled } from "../utils/mailer.js";
+import { buildRefundTransId, processSSLCommerZRefund, resolveSslBankTranId } from "../utils/sslcommerzRefund.js";
 
 const normalizeText = (value) => String(value ?? "").trim();
 
@@ -42,6 +43,7 @@ const serializeAdminOrder = (orderDoc) => {
     ...order,
     status,
     paymentStatus: derivePaymentStatus(order),
+    displayStatus: deriveDisplayStatus(order),
     orderNumber: humanOrderNumber(order._id),
     customerName: order.user?.name || order.shippingAddress?.firstName || "Customer",
     customerEmail: order.user?.email || order.shippingAddress?.email || "",
@@ -79,32 +81,31 @@ const parsePositiveAmount = (value) => {
   return amount;
 };
 
-const refundSslPayment = async (bankTranId, amount, remarks) => {
-  const baseUrl = String(process.env.SSLCZ_IS_LIVE).toLowerCase() === "true"
-    ? "https://securepay.sslcommerz.com"
-    : "https://sandbox.sslcommerz.com";
-
-  const params = new URLSearchParams({
-    store_id: process.env.SSLCZ_STORE_ID || "",
-    store_passwd: process.env.SSLCZ_STORE_PASSWORD || "",
-    bank_tran_id: bankTranId,
-    refund_amount: String(Number(amount).toFixed(2)),
-    refund_remarks: remarks || "",
-    v: "1",
-    format: "json"
-  });
-
-  const response = await fetch(`${baseUrl}/gwprocess/v4/refund.php`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString()
-  });
-
-  if (!response.ok) {
-    throw new Error(`SSLCommerz refund API failed with status ${response.status}`);
+const refundSslPayment = async (order, amount, remarks, refundRefSeed) => {
+  const bankTranId = resolveSslBankTranId(order);
+  if (!bankTranId) {
+    throw new Error("No SSLCommerz bank transaction ID found for this order");
   }
 
-  return response.json();
+  const result = await processSSLCommerZRefund({
+    bankTranId,
+    refundAmount: amount,
+    refundRemarks: remarks || "Admin refund",
+    refundRefId: refundRefSeed,
+    refundTransId: buildRefundTransId(refundRefSeed)
+  });
+
+  if (!result.success) {
+    const err = new Error(result.message || "SSLCommerz refund failed");
+    err.gateway = result.rawResponse;
+    throw err;
+  }
+
+  return {
+    status: "success",
+    refund_ref_id: result.refundRefId,
+    ...result.rawResponse
+  };
 };
 
 const applyMutableOrderFields = ({ order, body, actor }) => {
@@ -225,22 +226,37 @@ const applyMutableOrderFields = ({ order, body, actor }) => {
 export const listAdminOrders = async (req, res) => {
   const query = { adminDeletedAt: { $exists: false } };
   const status = normalizeText(req.query.status);
+  const cancelledQueue = normalizeText(req.query.cancelledQueue).toLowerCase();
   const paymentStatus = normalizeText(req.query.paymentStatus).toLowerCase();
   const dateFrom = normalizeText(req.query.dateFrom);
   const dateTo = normalizeText(req.query.dateTo);
   const q = normalizeText(req.query.q);
 
-  if (status && ORDER_STATUSES.includes(status)) {
+  if (cancelledQueue === "1" || cancelledQueue === "true") {
+    query.$or = [
+      { status: "cancelled" },
+      { status: "refunded", cancelledAt: { $exists: true, $ne: null } }
+    ];
+  } else if (status && ORDER_STATUSES.includes(status)) {
     query.status = status;
   }
 
   if (paymentStatus === "paid") {
     query.isPaid = true;
-    query["refund.amount"] = { $lte: 0 };
+    query.refundStatus = { $ne: "success" };
   } else if (paymentStatus === "pending") {
     query.isPaid = false;
   } else if (paymentStatus === "refunded") {
-    query["refund.amount"] = { $gt: 0 };
+    query.$and = [
+      ...(Array.isArray(query.$and) ? query.$and : []),
+      {
+        $or: [
+          { refundStatus: "success" },
+          { status: "refunded" },
+          { "refund.amount": { $gt: 0 } }
+        ]
+      }
+    ];
   }
 
   if (dateFrom || dateTo) {
@@ -407,9 +423,6 @@ export const updateAdminOrderStatus = async (req, res) => {
     .populate("user", "name email")
     .populate("orderItems.product", "name slug sku image");
 
-  if (status === "shipped" && populated?.user) sendOrderShipped(populated, populated.user);
-  if (status === "delivered" && populated?.user) sendOrderDelivered(populated, populated.user);
-  if (status === "cancelled" && populated?.user) sendOrderCancelled(populated, populated.user, req.body?.reason);
 
   return res.json(serializeAdminOrder(populated));
 };
@@ -482,8 +495,6 @@ export const cancelAdminOrder = async (req, res) => {
     .populate("user", "name email")
     .populate("orderItems.product", "name slug sku image");
 
-  sendOrderCancelled(populated, populated.user, reason);
-
   return res.json(serializeAdminOrder(populated));
 };
 
@@ -522,24 +533,23 @@ export const refundAdminOrder = async (req, res) => {
     // Process SSLCommerz refund if the order was paid via SSLCommerz
     let sslRefundRefId = null;
     if (order.paymentMethod === "SSLCommerz" && order.isPaid) {
-        // Use stored paymentReference (transaction ID from SSLCommerz)
-        const bankTranId = order.paymentReference;
-
-        if (!bankTranId) {
-            return res.status(400).json({ message: "No SSL transaction ID found for this order. Cannot process SSLCommerz refund." });
+        if (!resolveSslBankTranId(order)) {
+            return res.status(400).json({ message: "No SSLCommerz bank transaction ID found for this order." });
         }
 
         try {
-            const result = await refundSslPayment(bankTranId, amount, reason || "Admin refund");
-            if (result?.status === "success") {
-                sslRefundRefId = result.refund_ref_id || null;
-            } else {
-                return res.status(400).json({
-                    message: `SSLCommerz refund failed: ${result?.errorReason || "Unknown error"}`
-                });
-            }
+            const result = await refundSslPayment(
+              order,
+              amount,
+              reason || "Admin refund",
+              `ADM_${order._id}_${Date.now()}`
+            );
+            sslRefundRefId = result.refund_ref_id || null;
         } catch (err) {
-            return res.status(502).json({ message: `SSLCommerz refund error: ${err.message}` });
+            return res.status(400).json({
+              message: err.message || "SSLCommerz refund failed",
+              gateway: err.gateway || undefined
+            });
         }
     }
 

@@ -2961,7 +2961,13 @@ h3 {
   border: 1px solid var(--line);
   padding: 1.5rem;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.return-modal--scroll {
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .return-modal-head {
@@ -3000,14 +3006,98 @@ h3 {
   gap: 1.25rem;
 }
 
-.return-modal-form textarea {
+.return-modal-form label {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.return-modal-form textarea,
+.return-modal-form input[type="text"] {
   width: 100%;
-  min-height: 120px;
+  min-height: 44px;
   border-radius: 12px;
   border: 1px solid var(--line);
   padding: 0.75rem;
   font: inherit;
   resize: vertical;
+  background: #fff;
+}
+
+.return-modal-form textarea {
+  min-height: 120px;
+}
+
+.return-modal-form input[type="text"]:disabled {
+  background: var(--surface-soft);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.return-refund-method-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.return-refund-method-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.return-refund-method-picker {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.return-refund-method-option {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  font: inherit;
+}
+
+.return-refund-method-option:hover {
+  border-color: #96b2f8;
+  background: #f8fbff;
+}
+
+.return-refund-method-option.is-selected {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25);
+}
+
+.return-refund-method-option-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+.return-refund-method-option-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.return-field-hint {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.return-account-required .return-field-hint {
+  color: #4f46e5;
 }
 
 .return-policy-box {

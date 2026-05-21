@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 
 const normalizeName = (value) => String(value || "").trim().replace(/\s+/g, " ");
@@ -76,8 +75,6 @@ export const registerUser = async (req, res) => {
     phone,
     password: hashedPassword
   });
-
-  sendWelcomeEmail(user);
 
   return res.status(201).json(sanitizeAuthUser(user));
 };

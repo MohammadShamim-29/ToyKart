@@ -1,8 +1,6 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import ReturnRequest from "../models/ReturnRequest.js";
-import { sendReturnSubmitted } from "../utils/mailer.js";
-
 const asTrimmed = (v) => String(v ?? "").trim();
 
 const serializeReturnRequest = (doc) => {
@@ -23,6 +21,16 @@ export const createReturnRequest = async (req, res) => {
   }
   if (!reason) {
     return res.status(400).json({ message: "Reason is required" });
+  }
+
+  const allowedRefundMethods = ["OriginalPaymentMethod", "BankTransfer", "bKash", "Nagad"];
+  const method = allowedRefundMethods.includes(refundMethod) ? refundMethod : "OriginalPaymentMethod";
+  const accountInfo = asTrimmed(refundAccountInfo);
+
+  if (method !== "OriginalPaymentMethod" && !accountInfo) {
+    return res.status(400).json({
+      message: "Please provide bank or MFS account details for your selected refund method."
+    });
   }
 
   const order = await Order.findById(orderId);
@@ -69,8 +77,8 @@ export const createReturnRequest = async (req, res) => {
     reason,
     description,
     evidenceAttachments: Array.isArray(evidenceAttachments) ? evidenceAttachments : [],
-    refundMethod: refundMethod || "OriginalPaymentMethod",
-    refundAccountInfo,
+    refundMethod: method,
+    refundAccountInfo: accountInfo || undefined,
     timeline: [
       {
         status: "PENDING",
@@ -82,8 +90,7 @@ export const createReturnRequest = async (req, res) => {
     ]
   });
 
-  await created.populate("order", "_id itemsPrice shippingPrice taxPrice totalPrice status createdAt");
-  sendReturnSubmitted(created, req.user);
+  await created.populate("order", "_id itemsPrice shippingPrice taxPrice totalPrice status paymentMethod isPaid createdAt");
   return res.status(201).json(serializeReturnRequest(created));
 };
 

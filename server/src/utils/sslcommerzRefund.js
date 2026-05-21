@@ -1,12 +1,17 @@
 /**
- * SSL Commerz Refund Utility Functions
- * Handles all communication with SSLCOMMERZ refund APIs
+ * SSL Commerz Refund API (official v4 docs)
+ * Initiate + status: GET validator/api/merchantTransIDvalidationAPI.php
+ * @see https://developer.sslcommerz.com/doc/v4/
  */
 
-const getSslBaseUrl = () => {
+const normalizeText = (value) => String(value ?? "").trim();
+
+export const getSslBaseUrl = () => {
   const isLive = String(process.env.SSLCZ_IS_LIVE).toLowerCase() === "true";
   return isLive ? "https://securepay.sslcommerz.com" : "https://sandbox.sslcommerz.com";
 };
+
+const refundValidatorUrl = () => `${getSslBaseUrl()}/validator/api/merchantTransIDvalidationAPI.php`;
 
 const validateEnvironmentVariables = () => {
   const storeId = process.env.SSLCZ_STORE_ID;
@@ -19,160 +24,186 @@ const validateEnvironmentVariables = () => {
   return { storeId, storePassword };
 };
 
+/** Mandatory refund_trans_id (max 30 chars) — required since 2025-02-24 */
+export const buildRefundTransId = (seed) => {
+  const compact = String(seed || `TR${Date.now()}`).replace(/[^a-zA-Z0-9]/g, "");
+  return compact.slice(0, 30) || `TR${Date.now()}`.slice(0, 30);
+};
+
 /**
- * Process refund through SSLCOMMERZ gateway
- * @param {Object} refundData - Refund request data
- * @returns {Promise<Object>} Gateway response
+ * Resolve SSLCommerz bank_tran_id (banks end) — required for refunds.
+ */
+export const resolveSslBankTranId = (order) => {
+  if (!order) return "";
+  const bankTranId = normalizeText(order.bankTranId);
+  if (bankTranId) return bankTranId;
+  const paymentReference = normalizeText(order.paymentReference);
+  if (paymentReference && !paymentReference.startsWith("TOYKART_")) {
+    return paymentReference;
+  }
+  const gatewayBank = normalizeText(order.paymentResult?.bank_tran_id);
+  if (gatewayBank) return gatewayBank;
+  return "";
+};
+
+const parseRefundInitiateResponse = (result, fallbackRefId) => {
+  const apiConnect = normalizeText(result?.APIConnect).toUpperCase();
+  const status = normalizeText(result?.status).toLowerCase();
+  const errorReason = normalizeText(result?.errorReason || result?.error_reason);
+
+  if (apiConnect !== "DONE") {
+    return {
+      success: false,
+      status: status || apiConnect || "failed",
+      message: errorReason || `SSLCommerz connection failed (${apiConnect || "unknown"})`,
+      rawResponse: result
+    };
+  }
+
+  const success = status === "success" || status === "processing";
+
+  return {
+    success,
+    status,
+    refundRefId: result?.refund_ref_id || fallbackRefId,
+    bankTranId: result?.bank_tran_id,
+    transactionId: result?.trans_id,
+    refundAmount: result?.refund_amount,
+    message: success
+      ? errorReason || "Refund initiated successfully"
+      : errorReason || "Refund request failed",
+    rawResponse: result
+  };
+};
+
+/**
+ * Initiate refund — GET merchantTransIDvalidationAPI.php with refund params
  */
 export const processSSLCommerZRefund = async (refundData) => {
-  const { bankTranId, refundAmount, refundRemarks, refundRefId } = refundData;
+  const { bankTranId, refundAmount, refundRemarks, refundRefId, refundTransId } = refundData;
 
   if (!bankTranId) {
-    throw new Error("Bank Transaction ID is required for refund processing");
+    throw new Error("Bank transaction ID is required for refund processing");
   }
 
   if (refundAmount <= 0) {
     throw new Error("Refund amount must be greater than 0");
   }
 
-  try {
-    const { storeId, storePassword } = validateEnvironmentVariables();
-    const baseUrl = getSslBaseUrl();
+  const { storeId, storePassword } = validateEnvironmentVariables();
+  const transId = buildRefundTransId(refundTransId || refundRefId);
+  const refeId = String(refundRefId || transId).slice(0, 50);
 
-    // Build refund request parameters
-    const params = new URLSearchParams({
-      store_id: storeId,
-      store_passwd: storePassword,
-      bank_tran_id: bankTranId,
-      refund_amount: String(Number(refundAmount).toFixed(2)),
-      refund_remarks: refundRemarks || "Refund approved by admin",
-      refe_id: refundRefId,
-      format: "json"
-    });
+  const params = new URLSearchParams({
+    bank_tran_id: bankTranId,
+    refund_trans_id: transId,
+    store_id: storeId,
+    store_passwd: storePassword,
+    refund_amount: String(Number(refundAmount).toFixed(2)),
+    refund_remarks: refundRemarks || "Refund approved by admin",
+    refe_id: refeId,
+    v: "1",
+    format: "json"
+  });
 
-    console.log("[SSLCOMMERZ] Processing refund:", {
-      bankTranId,
-      refundAmount,
-      refundRefId
-    });
+  const url = `${refundValidatorUrl()}?${params.toString()}`;
 
-    // Make request to SSLCOMMERZ refund API
-    const response = await fetch(
-      `${baseUrl}/gwprocess/v4/refund.php`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: params.toString()
-      }
-    );
+  console.log("[SSLCOMMERZ] Initiate refund:", { bankTranId, refundAmount, refund_trans_id: transId });
 
-    if (!response.ok) {
-      throw new Error(`SSLCOMMERZ API returned status ${response.status}`);
-    }
+  const response = await fetch(url, { method: "GET" });
 
-    const result = await response.json();
-
-    console.log("[SSLCOMMERZ] Refund response:", result);
-
-    // Validate and parse response
-    if (!result) {
-      throw new Error("Empty response from SSLCOMMERZ");
-    }
-
-    return {
-      success: result.status === "success",
-      status: result.status || "unknown",
-      refundRefId: result.refund_ref_id || refundRefId,
-      bankTranId: result.bank_tran_id,
-      transactionId: result.tran_id,
-      refundAmount: result.refund_amount,
-      message: result.status_message || result.error_reason || "Refund processed",
-      rawResponse: result
-    };
-  } catch (error) {
-    console.error("[SSLCOMMERZ] Refund processing error:", error);
-    throw new Error(`SSL Commerz refund failed: ${error.message}`);
+  if (!response.ok) {
+    throw new Error(`SSLCOMMERZ API returned HTTP ${response.status}`);
   }
+
+  const result = await response.json();
+  console.log("[SSLCOMMERZ] Refund initiate response:", result);
+
+  return parseRefundInitiateResponse(result, refeId);
 };
 
 /**
- * Check refund status from SSLCOMMERZ gateway
- * @param {string} refundRefId - Refund Reference ID
- * @returns {Promise<Object>} Status response
+ * Query refund status by refund_ref_id from SSLCommerz
  */
 export const checkRefundStatus = async (refundRefId) => {
   if (!refundRefId) {
-    throw new Error("Refund Reference ID is required");
+    throw new Error("Refund reference ID is required");
   }
 
-  try {
-    const { storeId, storePassword } = validateEnvironmentVariables();
-    const baseUrl = getSslBaseUrl();
+  const { storeId, storePassword } = validateEnvironmentVariables();
 
-    const params = new URLSearchParams({
-      store_id: storeId,
-      store_passwd: storePassword,
-      refe_id: refundRefId,
-      format: "json"
-    });
+  const params = new URLSearchParams({
+    refund_ref_id: refundRefId,
+    store_id: storeId,
+    store_passwd: storePassword,
+    format: "json"
+  });
 
-    console.log("[SSLCOMMERZ] Checking refund status:", { refundRefId });
+  const url = `${refundValidatorUrl()}?${params.toString()}`;
 
-    const response = await fetch(
-      `${baseUrl}/validator/api/merchantTransIDvalidationAPI.php?${params.toString()}`,
-      {
-        method: "GET"
-      }
-    );
+  console.log("[SSLCOMMERZ] Query refund status:", { refundRefId });
 
-    if (!response.ok) {
-      throw new Error(`SSLCOMMERZ API returned status ${response.status}`);
-    }
+  const response = await fetch(url, { method: "GET" });
 
-    const result = await response.json();
+  if (!response.ok) {
+    throw new Error(`SSLCOMMERZ API returned HTTP ${response.status}`);
+  }
 
-    console.log("[SSLCOMMERZ] Status check response:", result);
+  const result = await response.json();
+  console.log("[SSLCOMMERZ] Refund status response:", result);
 
+  const apiConnect = normalizeText(result?.APIConnect).toUpperCase();
+  const status = normalizeText(result?.status).toLowerCase();
+  const errorReason = normalizeText(result?.errorReason || result?.error_reason);
+
+  if (apiConnect !== "DONE") {
     return {
-      success: result.status === "success" || result.status === "VALID",
-      status: result.status || "unknown",
-      message: result.status_message || result.error_reason || "Status retrieved",
+      success: false,
+      status: status || apiConnect || "unknown",
+      message: errorReason || `SSLCommerz connection failed (${apiConnect || "unknown"})`,
       rawResponse: result
     };
-  } catch (error) {
-    console.error("[SSLCOMMERZ] Status check error:", error);
-    throw new Error(`Failed to check refund status: ${error.message}`);
   }
+
+  return {
+    success: status === "refunded" || status === "processing",
+    status,
+    message: errorReason || "Status retrieved",
+    rawResponse: result
+  };
 };
 
-/**
- * Validate that order is eligible for refund
- * @param {Object} order - Order object
- * @returns {Object} Validation result
- */
-export const validateRefundEligibility = (order) => {
+export const validateRefundEligibility = (order, options = {}) => {
+  const { sourceType = "cancellation" } = options;
   const errors = [];
 
-  // Check payment method
-  if (order.paymentMethod !== "SSLCommerz") {
-    errors.push("Only online payment orders are eligible for gateway refund");
+  if (sourceType === "cancellation") {
+    if (normalizeOrderStatus(order?.status) !== "cancelled") {
+      errors.push("Order must be cancelled before processing a refund");
+    }
+    if (!order?.cancellationApprovedAt) {
+      errors.push("Cancellation must be approved by admin before refund can be processed");
+    }
   }
 
-  // Check if order is paid
+  if (order.paymentMethod !== "SSLCommerz") {
+    errors.push("Only SSLCommerz online payment orders can be refunded through the gateway");
+  }
+
   if (!order.isPaid) {
     errors.push("Order must be paid before refund");
   }
 
-  // Check for transaction ID
-  if (!order.paymentReference) {
-    errors.push("Transaction ID not found for this order");
+  if (!resolveSslBankTranId(order)) {
+    errors.push("SSLCommerz bank transaction ID not found on this order");
   }
 
-  // Check total amount
   if (!order.totalPrice || order.totalPrice <= 0) {
     errors.push("Invalid order amount");
+  }
+
+  if (order.refundStatus === "success") {
+    errors.push("Refund has already been processed for this order");
   }
 
   return {
@@ -181,10 +212,17 @@ export const validateRefundEligibility = (order) => {
   };
 };
 
+const normalizeOrderStatus = (status) => {
+  const allowed = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned", "refunded"];
+  return allowed.includes(status) ? status : "pending";
+};
+
 export default {
   processSSLCommerZRefund,
   checkRefundStatus,
   validateRefundEligibility,
+  resolveSslBankTranId,
+  buildRefundTransId,
   getSslBaseUrl,
   validateEnvironmentVariables
 };

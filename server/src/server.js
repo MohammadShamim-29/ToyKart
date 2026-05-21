@@ -4,7 +4,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import app from "./app.js";
 import { connectDB } from "./config/db.js";
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Always load server/.env regardless of where the command is run from.

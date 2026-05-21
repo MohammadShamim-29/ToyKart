@@ -14,7 +14,6 @@ import {
 } from "@mui/material";
 import { useRecordContext } from "react-admin";
 import {
-  BooleanInput,
   Datagrid,
   DateField,
   Edit,
@@ -23,7 +22,6 @@ import {
   List,
   ListActions,
   NumberField,
-  NumberInput,
   SaveButton,
   SelectInput,
   SimpleForm,
@@ -32,11 +30,12 @@ import {
   useRefresh
 } from "react-admin";
 import api from "../../api";
-import refundAPI from "../../api/refundAPI";
 import { AdminFormPageLayout, AdminFormSection } from "../components/AdminFormChrome";
 import ProcessRefundButton from "../components/ProcessRefundButton";
 import RefundStatusChip from "../components/RefundStatusChip";
 import ApproveCancellationButton from "../components/ApproveCancellationButton";
+import CancellationRefundPanel from "../components/CancellationRefundPanel";
+import { getOrderStatusKey, getOrderStatusLabel } from "../../utils/orderStatusLabel";
 import { FileDown } from "lucide-react";
 
 const currency = new Intl.NumberFormat("en-BD", {
@@ -45,10 +44,13 @@ const currency = new Intl.NumberFormat("en-BD", {
   maximumFractionDigits: 0
 });
 
-const statusChip = (status) => {
-  const s = String(status || "cancelled");
-  const color = s === "refunded" ? "warning" : "error";
-  return <Chip size="small" variant="outlined" label={s.charAt(0).toUpperCase() + s.slice(1)} color={color} />;
+const statusChip = (record) => {
+  const key = getOrderStatusKey(record);
+  const color =
+    key === "cancelled_refunded" ? "success" : key === "cancelled" ? "error" : "warning";
+  return (
+    <Chip size="small" variant="outlined" label={getOrderStatusLabel(record)} color={color} />
+  );
 };
 
 const paymentChip = (paymentStatus) => {
@@ -59,50 +61,6 @@ const paymentChip = (paymentStatus) => {
 
 const titleFromOrder = ({ record }) =>
   `Order #${record?.orderNumber || String(record?.id || "").slice(-8).toUpperCase()}`;
-
-const CancelledOrderActions = ({ record }) => {
-  const notify = useNotify();
-  const refresh = useRefresh();
-  const [busy, setBusy] = useState(false);
-
-  const processRefund = async () => {
-    if (!record?.id) return;
-    const amount = window.prompt("Enter refund amount (BDT):", String(record?.totalPrice || ""));
-    if (!amount || Number(amount) <= 0) return;
-    const reason = window.prompt("Refund reason (optional):", "Order cancelled - customer refund");
-    setBusy(true);
-    try {
-      await api.patch(`admin/orders/${record.id}/refund`, {
-        amount: Number(amount),
-        reason: reason || ""
-        // sslTransactionId is optional - system will use stored paymentReference if not provided
-      });
-      notify("Refund processed successfully", { type: "success" });
-      refresh();
-    } catch (err) {
-      notify(err.response?.data?.message || "Refund failed", { type: "error" });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (record?.paymentStatus === "refunded") return null;
-
-  return (
-    <Button
-      variant="contained"
-      color="warning"
-      size="small"
-      disabled={busy}
-      onClick={(e) => {
-        e.stopPropagation();
-        processRefund();
-      }}
-    >
-      Refund
-    </Button>
-  );
-};
 
 export const CancelledOrderList = () => (
   <List
@@ -129,7 +87,7 @@ export const CancelledOrderList = () => (
         label="Customer"
         render={(record) => record.customerName || record.user?.name || "Customer"}
       />
-      <FunctionField label="Status" render={(record) => statusChip(record.status)} />
+      <FunctionField label="Status" render={(record) => statusChip(record)} />
       <FunctionField label="Payment" render={(record) => paymentChip(record.paymentStatus)} />
       <FunctionField label="Cancel reason" render={(record) => record.cancelReason || "—"} />
       <FunctionField
@@ -435,58 +393,19 @@ const CancelledOrderFormAside = () => {
 
   if (!record) return null;
 
-  const isRefunded = record?.paymentStatus === "refunded";
-
   return (
     <Stack spacing={2}>
+      <CancellationRefundPanel />
+
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
           Save updates
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-          Save applies status/payment/tracking edits and appends note/refund updates from the form.
+          Save applies internal notes and admin fields. Use the panel above for cancellation approval and SSL
+          refunds.
         </Typography>
         <SaveButton label="Save order" variant="contained" fullWidth disabled={busy} />
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-          Refund
-        </Typography>
-        {isRefunded ? (
-          <Alert severity="success" variant="outlined" sx={{ borderRadius: 2 }}>
-            Refunded {currency.format(record.refund?.amount || 0)}
-            {record.refund?.refundedAt
-              ? ` on ${new Date(record.refund.refundedAt).toLocaleDateString()}`
-              : ""}
-          </Alert>
-        ) : (
-          <Stack spacing={1.25}>
-            <Typography variant="caption" color="text.secondary">
-              Process a refund for this cancelled order.
-            </Typography>
-            <Button
-              variant="contained"
-              color="warning"
-              fullWidth
-              disabled={busy}
-              onClick={() =>
-                runAction(async () => {
-                  const amount = window.prompt("Refund amount (BDT):", String(record?.totalPrice || ""));
-                  if (!amount || Number(amount) <= 0) return;
-                  const reason = window.prompt("Refund reason (optional):", "Order cancelled - customer refund");
-                  await api.patch(`admin/orders/${record.id}/refund`, {
-                    amount: Number(amount),
-                    reason: reason || ""
-                  });
-                  notify("Refund processed", { type: "success" });
-                })
-              }
-            >
-              Process Refund
-            </Button>
-          </Stack>
-        )}
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -550,36 +469,39 @@ const CancelledOrderFormAside = () => {
   );
 };
 
-const statusChoices = [
-  { id: "cancelled", name: "Cancelled" },
-  { id: "refunded", name: "Refunded" }
-];
-
 const CancelledOrderFormFields = () => {
   const record = useRecordContext();
 
   return (
     <AdminFormPageLayout
-      hint="Manage cancelled orders: process refunds, view order details, and track payment status."
+      hint="Approve the cancellation first, then process the SSLCommerz refund. Transaction ID is read from the order automatically."
       hintTitle="Cancelled order management"
       aside={<CancelledOrderFormAside />}
     >
       <AdminFormSection
         sectionId="section-order-overview"
         title="Overview"
-        description="Order status and financial fields."
+        description="Order status and payment snapshot."
       >
-        <SelectInput source="status" choices={statusChoices} fullWidth />
-        <TextInput source="statusNote" label="Status change note" fullWidth multiline minRows={2} />
-        <BooleanInput source="isPaid" label="Paid" />
-        <TextInput source="paymentReference" label="Payment reference" fullWidth />
-        {record?.paymentMethod === "SSLCommerz" && record?.paymentReference && (
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
-            SSL Transaction ID: {record.paymentReference} (used automatically for refunds)
-          </Typography>
-        )}
-        <NumberInput source="newRefundAmount" label="Refund amount (BDT)" min={0} fullWidth />
-        <TextInput source="newRefundReason" label="Refund reason" fullWidth />
+        <MuiTextField
+          label="Order status"
+          value={getOrderStatusLabel(record)}
+          fullWidth
+          slotProps={{ input: { readOnly: true } }}
+        />
+        <MuiTextField
+          label="Payment status"
+          value={record?.paymentStatus ? String(record.paymentStatus) : "—"}
+          fullWidth
+          slotProps={{ input: { readOnly: true } }}
+        />
+        <MuiTextField
+          label="SSLCommerz transaction ID"
+          value={record?.bankTranId || record?.paymentReference || "—"}
+          fullWidth
+          slotProps={{ input: { readOnly: true } }}
+        />
+        <TextInput source="internalMemo" label="Internal memo" fullWidth multiline minRows={2} />
       </AdminFormSection>
 
     <AdminFormSection

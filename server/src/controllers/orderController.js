@@ -7,13 +7,13 @@ import ShippingDistrict from "../models/ShippingDistrict.js";
 import {
   actorFromUser,
   appendAdminNote,
+  deriveDisplayStatus,
   derivePaymentStatus,
   ensureOrderLifecycleDefaults,
   humanOrderNumber,
   normalizeOrderStatus,
   setOrderStatus
 } from "../utils/orderLifecycle.js";
-import { sendOrderConfirmation, sendOrderCancelled } from "../utils/mailer.js";
 
 const badRequest = (message) => {
   const err = new Error(message);
@@ -54,6 +54,7 @@ const serializeOrder = (orderDoc) => {
     ...order,
     status: normalizeOrderStatus(order.status),
     paymentStatus: derivePaymentStatus(order),
+    displayStatus: deriveDisplayStatus(order),
     orderNumber: humanOrderNumber(order._id)
   };
 };
@@ -316,8 +317,6 @@ export const createOrder = async (req, res) => {
       await created.save();
     }
 
-    sendOrderConfirmation(created, req.user);
-
     return res.status(201).json(serializeOrder(created));
   } catch (e) {
     if (e.statusCode === 400) {
@@ -420,8 +419,12 @@ const applyValidatedPaymentToOrder = async (payload) => {
 
   order.isPaid = true;
   order.paidAt = new Date();
-  order.paymentReference = normalizeText(validation.bank_tran_id) || normalizeText(validation.tran_id);
+  const bankTranId = normalizeText(validation.bank_tran_id);
+  const sslTranId = normalizeText(validation.tran_id);
+  order.bankTranId = bankTranId;
+  order.paymentReference = bankTranId || sslTranId;
   await order.save();
+
   return order;
 };
 
@@ -522,8 +525,6 @@ export const cancelMyOrder = async (req, res) => {
 
   await restoreOrderStock(order);
   await order.save();
-
-  sendOrderCancelled(order, req.user, reason);
 
   return res.json(serializeOrder(order));
 };

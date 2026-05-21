@@ -124,9 +124,24 @@ export const ensureOrderLifecycleDefaults = (order) => {
 };
 
 export const derivePaymentStatus = (order) => {
+  if (order?.refundStatus === "success" || normalizeOrderStatus(order?.status) === "refunded") {
+    return "refunded";
+  }
   const refundAmount = Number(order?.refund?.amount || 0);
   if (refundAmount > 0) return "refunded";
   return order?.isPaid ? "paid" : "pending";
+};
+
+/** Customer-facing / admin label key for composite cancelled+refunded state */
+export const deriveDisplayStatus = (order) => {
+  const status = normalizeOrderStatus(order?.status);
+  const refunded =
+    status === "refunded" || order?.refundStatus === "success" || Number(order?.refund?.amount || 0) > 0;
+
+  if (order?.cancelledAt && refunded) {
+    return "cancelled_refunded";
+  }
+  return status;
 };
 
 export const humanOrderNumber = (id) => String(id || "").slice(-8).toUpperCase();

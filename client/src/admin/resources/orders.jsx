@@ -35,7 +35,9 @@ import {
 } from "react-admin";
 import api from "../../api";
 import { AdminFormPageLayout, AdminFormSection } from "../components/AdminFormChrome";
+import CancellationRefundPanel from "../components/CancellationRefundPanel";
 import { generateReceipt } from "../../utils/generateReceipt";
+import { getOrderStatusKey, getOrderStatusLabel } from "../../utils/orderStatusLabel";
 import { FileDown } from "lucide-react";
 
 const statusChoices = [
@@ -63,21 +65,25 @@ const currency = new Intl.NumberFormat("en-BD", {
 const titleFromOrder = ({ record }) =>
   `Order #${record?.orderNumber || String(record?.id || "").slice(-8).toUpperCase()}`;
 
-const statusChip = (status) => {
-  const s = String(status || "pending");
+const statusChip = (record) => {
+  const key = getOrderStatusKey(record);
   const color =
-    s === "delivered"
+    key === "delivered"
       ? "success"
-      : s === "cancelled" || s === "returned"
+      : key === "cancelled"
         ? "error"
-        : s === "refunded"
-          ? "warning"
-          : s === "shipped" || s === "processing"
-            ? "info"
-            : s === "confirmed"
-              ? "primary"
-              : "warning";
-  return <Chip size="small" variant="outlined" label={s.charAt(0).toUpperCase() + s.slice(1)} color={color} />;
+        : key === "cancelled_refunded"
+          ? "success"
+          : key === "returned"
+            ? "error"
+            : key === "refunded"
+              ? "warning"
+              : key === "shipped" || key === "processing"
+                ? "info"
+                : key === "confirmed"
+                  ? "primary"
+                  : "warning";
+  return <Chip size="small" variant="outlined" label={getOrderStatusLabel(record)} color={color} />;
 };
 
 const paymentChip = (paymentStatus) => {
@@ -113,6 +119,8 @@ const OrderFormAside = () => {
 
   return (
     <Stack spacing={2}>
+      <CancellationRefundPanel />
+
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
           Save updates
@@ -466,7 +474,7 @@ export const OrderList = () => (
     <Datagrid rowClick="edit">
       <FunctionField label="Order" render={(record) => `#${record.orderNumber || String(record.id || "").slice(-8).toUpperCase()}`} />
       <FunctionField label="Customer" render={(record) => record.customerName || record.user?.name || "Customer"} />
-      <FunctionField label="Status" render={(record) => statusChip(record.status)} />
+      <FunctionField label="Status" render={(record) => statusChip(record)} />
       <FunctionField label="Payment" render={(record) => paymentChip(record.paymentStatus)} />
       <FunctionField label="Items" render={(record) => record.itemCount ?? record.orderItems?.length ?? 0} />
       <NumberField source="totalPrice" label="Total" options={{ style: "currency", currency: "BDT", maximumFractionDigits: 0 }} />

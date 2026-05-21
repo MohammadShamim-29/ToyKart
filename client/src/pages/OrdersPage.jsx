@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Trash2, FileDown, Upload } from "lucide-react";
 import api from "../api";
 import { generateReceipt } from "../utils/generateReceipt";
+import { getOrderStatusLabel, getOrderStatusUi } from "../utils/orderStatusLabel";
 
 const currency = new Intl.NumberFormat("en-BD", {
   style: "currency",
@@ -30,32 +31,54 @@ const titleCaseStatus = (status) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-const ORDER_STATUS_CONFIG = {
-  pending: { label: "Pending", color: "#d97706", bg: "#fef3c7" },
-  confirmed: { label: "Confirmed", color: "#2563eb", bg: "#dbeafe" },
-  processing: { label: "Processing", color: "#7c3aed", bg: "#ede9fe" },
-  shipped: { label: "Shipped", color: "#0891b2", bg: "#cffafe" },
-  delivered: { label: "Delivered", color: "#059669", bg: "#d1fae5" },
-  cancelled: { label: "Cancelled", color: "#dc2626", bg: "#fee2e2" },
-  returned: { label: "Returned", color: "#d97706", bg: "#fef3c7" },
-  refunded: { label: "Refunded", color: "#0891b2", bg: "#cffafe" }
+const REFUND_METHOD_OPTIONS = [
+  {
+    value: "OriginalPaymentMethod",
+    label: "Original Payment Method",
+    hint: "Refund to the same card or gateway used at checkout (SSLCommerz, etc.)"
+  },
+  {
+    value: "BankTransfer",
+    label: "Bank Transfer",
+    hint: "Refund to your bank account — add account details below"
+  },
+  {
+    value: "bKash",
+    label: "bKash",
+    hint: "Refund to your bKash wallet — add number below"
+  },
+  {
+    value: "Nagad",
+    label: "Nagad",
+    hint: "Refund to your Nagad wallet — add number below"
+  }
+];
+
+const refundAccountPlaceholder = (method) => {
+  if (method === "BankTransfer") {
+    return "Account holder name, bank name, account number, branch/routing (if any)";
+  }
+  if (method === "bKash") return "bKash number (e.g. 01XXXXXXXXX) and account name";
+  if (method === "Nagad") return "Nagad number (e.g. 01XXXXXXXXX) and account name";
+  return "Only required if you choose Bank Transfer, bKash, or Nagad";
 };
 
-const OrderStatusBadge = ({ status }) => {
-  const s = String(status || "pending").toLowerCase();
-  const cfg = ORDER_STATUS_CONFIG[s] || { label: titleCaseStatus(status), color: "#6b7280", bg: "#f3f4f6" };
+const OrderStatusBadge = ({ order, status }) => {
+  const cfg = order ? getOrderStatusUi(order) : getOrderStatusUi({ status });
   return (
-    <span style={{
-      display: "inline-block",
-      padding: "4px 12px",
-      borderRadius: "999px",
-      fontSize: "0.8rem",
-      fontWeight: 600,
-      color: cfg.color,
-      background: cfg.bg,
-      whiteSpace: "nowrap"
-    }}>
-      {cfg.label}
+    <span
+      style={{
+        display: "inline-block",
+        padding: "4px 12px",
+        borderRadius: "999px",
+        fontSize: "0.8rem",
+        fontWeight: 600,
+        color: cfg.color,
+        background: cfg.bg,
+        whiteSpace: "nowrap"
+      }}
+    >
+      {order ? getOrderStatusLabel(order) : cfg.label}
     </span>
   );
 };
@@ -242,8 +265,14 @@ const OrdersPage = () => {
       setError("Please accept the return policy before submitting.");
       return;
     }
+    if (returnRefundMethod !== "OriginalPaymentMethod" && !String(returnAccountInfo || "").trim()) {
+      setError("Please enter your bank or MFS account details for the selected refund method.");
+      return;
+    }
     onRequestReturn(returnModalOrderId);
   };
+
+  const needsRefundAccount = returnRefundMethod !== "OriginalPaymentMethod";
 
   const submitCancelModal = (e) => {
     e.preventDefault();
@@ -302,10 +331,15 @@ const OrdersPage = () => {
                   <div className="order-meta-grid">
                     <p>
                       <strong>Status:</strong>{" "}
-                      <OrderStatusBadge status={order.status} />
+                      <OrderStatusBadge order={order} />
                     </p>
                     <p>
-                      <strong>Payment:</strong> {order.isPaid ? "Paid" : "Pending"}
+                      <strong>Payment:</strong>{" "}
+                      {order.paymentStatus === "refunded"
+                        ? "Refunded"
+                        : order.isPaid
+                          ? "Paid"
+                          : "Pending"}
                     </p>
                     <p>
                       <strong>Total:</strong> {currency.format(order.totalPrice || 0)}
@@ -382,21 +416,38 @@ const OrdersPage = () => {
                     padding: "1rem 0 0.75rem",
                     borderBottom: "1px solid var(--line)"
                   }}>
-                    <OrderStatusBadge status={actionModalOrder.status} />
-                    {actionModalOrder.isPaid && (
-                      <span style={{
-                        display: "inline-block",
-                        padding: "4px 12px",
-                        borderRadius: "999px",
-                        fontSize: "0.78rem",
-                        fontWeight: 600,
-                        color: "#059669",
-                        background: "#d1fae5",
-                        whiteSpace: "nowrap"
-                      }}>
+                    <OrderStatusBadge order={actionModalOrder} />
+                    {actionModalOrder.paymentStatus === "refunded" ? (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "4px 12px",
+                          borderRadius: "999px",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          color: "#0f766e",
+                          background: "#ccfbf1",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        Refunded
+                      </span>
+                    ) : actionModalOrder.isPaid ? (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "4px 12px",
+                          borderRadius: "999px",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          color: "#059669",
+                          background: "#d1fae5",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
                         Paid
                       </span>
-                    )}
+                    ) : null}
                     <span style={{ marginLeft: "auto", fontSize: "0.82rem", color: "#6b7280" }}>
                       {currency.format(actionModalOrder.totalPrice || 0)}
                     </span>
@@ -492,7 +543,7 @@ const OrdersPage = () => {
                         }} />
                         {[...actionModalOrder.statusHistory].reverse().map((entry, idx) => {
                           const s = String(entry.to || "").toLowerCase();
-                          const cfg = ORDER_STATUS_CONFIG[s] || { color: "#6b7280", bg: "#f3f4f6" };
+                          const cfg = getOrderStatusUi({ status: s });
                           const isLast = idx === 0;
                           return (
                             <div key={`${entry.changedAt || idx}-${entry.to || idx}`} style={{ position: "relative", paddingBottom: idx < actionModalOrder.statusHistory.length - 1 ? "1rem" : 0 }}>
@@ -520,7 +571,7 @@ const OrdersPage = () => {
                                     background: cfg.bg,
                                     whiteSpace: "nowrap"
                                   }}>
-                                    {titleCaseStatus(entry.to)}
+                                    {getOrderStatusLabel({ status: entry.to })}
                                   </span>
                                   {entry.changedAt && (
                                     <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
@@ -551,7 +602,7 @@ const OrdersPage = () => {
 
       {returnModalOrderId && (
         <div className="return-modal-backdrop" role="presentation" onClick={closeReturnModal}>
-          <div className="return-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "580px" }}>
+          <div className="return-modal return-modal--scroll" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "580px" }}>
             <div className="return-modal-head">
               <h3>Return / Refund Request</h3>
               <button type="button" className="return-modal-close" onClick={closeReturnModal} disabled={Boolean(requestingId)}>
@@ -582,42 +633,45 @@ const OrdersPage = () => {
                 />
               </label>
 
-              <label>
-                Preferred Refund Method
-                <select
-                  value={returnRefundMethod}
-                  onChange={(e) => setReturnRefundMethod(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "0.7rem 0.75rem",
-                    borderRadius: "8px",
-                    border: "1px solid var(--line, #d1d5db)",
-                    fontSize: "0.9rem",
-                    background: "white"
-                  }}
-                >
-                  <option value="OriginalPaymentMethod">Original Payment Method</option>
-                  <option value="BankTransfer">Bank Transfer</option>
-                  <option value="bKash">bKash</option>
-                  <option value="Nagad">Nagad</option>
-                </select>
-              </label>
+              <div className="return-refund-method-field">
+                <span className="return-refund-method-label">Preferred Refund Method *</span>
+                <div className="return-refund-method-picker" role="radiogroup" aria-label="Preferred refund method">
+                  {REFUND_METHOD_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={returnRefundMethod === opt.value}
+                      className={`return-refund-method-option${returnRefundMethod === opt.value ? " is-selected" : ""}`}
+                      onClick={() => setReturnRefundMethod(opt.value)}
+                    >
+                      <span className="return-refund-method-option-title">{opt.label}</span>
+                      <span className="return-refund-method-option-hint">{opt.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              <label>
-                Bank / MFS Account Information
+              <label className={needsRefundAccount ? "return-account-required" : ""}>
+                {needsRefundAccount ? "Refund account details *" : "Refund account details (optional)"}
                 <input
                   type="text"
                   value={returnAccountInfo}
                   onChange={(e) => setReturnAccountInfo(e.target.value)}
-                  placeholder='e.g. bKash: 01XXXXXXXXX / Bank: Account name, number, routing'
-                  style={{
-                    width: "100%",
-                    padding: "0.7rem 0.75rem",
-                    borderRadius: "8px",
-                    border: "1px solid var(--line, #d1d5db)",
-                    fontSize: "0.9rem"
-                  }}
+                  placeholder={refundAccountPlaceholder(returnRefundMethod)}
+                  required={needsRefundAccount}
+                  disabled={!needsRefundAccount}
+                  aria-disabled={!needsRefundAccount}
                 />
+                {needsRefundAccount ? (
+                  <span className="return-field-hint">
+                    We will send the refund to this account after your return is approved.
+                  </span>
+                ) : (
+                  <span className="return-field-hint">
+                    Not needed when refunding to your original payment method.
+                  </span>
+                )}
               </label>
 
               <label style={{ border: "2px dashed var(--line, #d1d5db)", borderRadius: "10px", padding: "1rem", textAlign: "center", cursor: "pointer" }}>

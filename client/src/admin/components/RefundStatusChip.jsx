@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Button,
   Chip,
@@ -14,18 +14,38 @@ import {
 import { useNotify } from "react-admin";
 import refundAPI from "../../api/refundAPI";
 
+const normalizeStatus = (value) => {
+  const s = String(value || "").toLowerCase();
+  if (s === "success" || s === "valid" || s === "refunded") return "success";
+  if (s === "failed") return "failed";
+  if (s === "processing") return "processing";
+  if (!s || s === "none") return "";
+  return s;
+};
+
+const resolveEffectiveStatus = (refund, order, returnRequest) => {
+  if (returnRequest?.status === "REFUND_PROCESSED") return "success";
+  if (order?.refundStatus === "success" || order?.status === "refunded") return "success";
+  return normalizeStatus(refund?.status);
+};
+
 /**
  * Refund Status Component
  * Displays and manages refund status
  */
-export const RefundStatusChip = ({ refund, order, onRefresh }) => {
+export const RefundStatusChip = ({ refund, order, returnRequest, onRefresh }) => {
   const notify = useNotify();
   const [loading, setLoading] = useState(false);
   const [openDetails, setOpenDetails] = useState(false);
   const [details, setDetails] = useState(null);
 
+  const effectiveStatus = useMemo(
+    () => resolveEffectiveStatus(refund, order, returnRequest),
+    [refund?.status, order?.refundStatus, order?.status, returnRequest?.status]
+  );
+
   const getStatusColor = () => {
-    switch (refund?.status) {
+    switch (effectiveStatus) {
       case "success":
         return "success";
       case "failed":
@@ -38,10 +58,8 @@ export const RefundStatusChip = ({ refund, order, onRefresh }) => {
   };
 
   const getStatusLabel = () => {
-    if (!refund || refund.status === "none" || !refund.status) {
-      return "No Refund";
-    }
-    return refund.status.charAt(0).toUpperCase() + refund.status.slice(1);
+    if (!effectiveStatus) return "No Refund";
+    return effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1);
   };
 
   const handleCheckStatus = async () => {
@@ -53,7 +71,17 @@ export const RefundStatusChip = ({ refund, order, onRefresh }) => {
     setLoading(true);
     try {
       const result = await refundAPI.getRefundStatus(refund.refundRefId);
-      setDetails(result);
+      const status =
+        normalizeStatus(result.status) ||
+        normalizeStatus(result.refund?.status) ||
+        effectiveStatus ||
+        "unknown";
+
+      setDetails({
+        ...result,
+        status,
+        refund: result.refund || null
+      });
       setOpenDetails(true);
       notify("Refund status updated", { type: "success" });
       if (onRefresh) {
@@ -71,28 +99,27 @@ export const RefundStatusChip = ({ refund, order, onRefresh }) => {
     setDetails(null);
   };
 
+  const dialogStatus = details?.status ? normalizeStatus(details.status) : effectiveStatus;
+  const dialogStatusLabel = dialogStatus
+    ? dialogStatus.charAt(0).toUpperCase() + dialogStatus.slice(1)
+    : "Unknown";
+  const dialogSeverity =
+    dialogStatus === "success" ? "success" : dialogStatus === "failed" ? "error" : "info";
+
+  const refundRecord = details?.refund;
+
   return (
     <>
       <Stack direction="row" spacing={1} alignItems="center">
         <Tooltip title={`Status: ${getStatusLabel()}`}>
-          <Chip
-            label={getStatusLabel()}
-            color={getStatusColor()}
-            size="small"
-            variant="outlined"
-          />
+          <Chip label={getStatusLabel()} color={getStatusColor()} size="small" variant="outlined" />
         </Tooltip>
 
-        {refund?.refundRefId && (
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={loading}
-            onClick={handleCheckStatus}
-          >
+        {refund?.refundRefId && effectiveStatus !== "success" ? (
+          <Button size="small" variant="outlined" disabled={loading} onClick={handleCheckStatus}>
             {loading ? <CircularProgress size={16} /> : "Check Status"}
           </Button>
-        )}
+        ) : null}
       </Stack>
 
       <Dialog open={openDetails} onClose={handleCloseDetails} maxWidth="sm" fullWidth>
@@ -101,8 +128,9 @@ export const RefundStatusChip = ({ refund, order, onRefresh }) => {
           <Stack spacing={2}>
             {details && (
               <>
-                <Alert severity="info">
-                  Status: <strong>{details.status || "Unknown"}</strong>
+                <Alert severity={dialogSeverity}>
+                  Status: <strong>{dialogStatusLabel}</strong>
+                  {dialogStatus === "success" ? " — refund completed successfully" : ""}
                 </Alert>
 
                 {refund?.refundRefId && (
@@ -116,49 +144,49 @@ export const RefundStatusChip = ({ refund, order, onRefresh }) => {
                   </div>
                 )}
 
-                {refund?.refundAmount && (
+                {(refundRecord?.refundAmount ?? order?.refund?.amount) != null && (
                   <div>
                     <Typography variant="body2" color="textSecondary">
                       Refund Amount
                     </Typography>
                     <Typography variant="body2">
-                      ৳{refund.refundAmount}
+                      ৳{refundRecord?.refundAmount ?? order?.refund?.amount ?? order?.totalPrice}
                     </Typography>
                   </div>
                 )}
 
-                {refund?.processedAt && (
+                {(refundRecord?.processedAt || order?.refundedAt) && (
                   <div>
                     <Typography variant="body2" color="textSecondary">
                       Processed At
                     </Typography>
                     <Typography variant="body2">
-                      {new Date(refund.processedAt).toLocaleString()}
+                      {new Date(refundRecord?.processedAt || order?.refundedAt).toLocaleString()}
                     </Typography>
                   </div>
                 )}
 
-                {refund?.completedAt && (
+                {refundRecord?.completedAt && (
                   <div>
                     <Typography variant="body2" color="textSecondary">
                       Completed At
                     </Typography>
                     <Typography variant="body2">
-                      {new Date(refund.completedAt).toLocaleString()}
+                      {new Date(refundRecord.completedAt).toLocaleString()}
                     </Typography>
                   </div>
                 )}
 
-                {refund?.failureReason && (
-                  <Alert severity="error">
-                    {refund.failureReason}
-                  </Alert>
+                {refundRecord?.failureReason && (
+                  <Alert severity="error">{refundRecord.failureReason}</Alert>
                 )}
 
                 {details.message && (
-                  <Alert severity="success">
-                    {details.message}
-                  </Alert>
+                  <Alert severity={dialogStatus === "success" ? "success" : "info"}>{details.message}</Alert>
+                )}
+
+                {details.gateway_error && dialogStatus !== "success" && (
+                  <Alert severity="warning">Gateway: {details.gateway_error}</Alert>
                 )}
               </>
             )}
