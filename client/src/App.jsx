@@ -14,6 +14,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import CheckoutThankYouPage from "./pages/CheckoutThankYouPage";
 import ProfilePage from "./pages/ProfilePage";
 import ReturnPolicyPage from "./pages/ReturnPolicyPage";
+import CancellationPolicyPage from "./pages/CancellationPolicyPage";
 import ReturnRequestsPage from "./pages/ReturnRequestsPage";
 import ReturnDetailsPage from "./pages/ReturnDetailsPage";
 import StorefrontLayout from "./layouts/StorefrontLayout";
@@ -61,6 +62,7 @@ const App = () => {
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/new-arrivals" element={<NewArrivalsPage />} />
         <Route path="/return-policy" element={<ReturnPolicyPage />} />
+        <Route path="/cancellation-policy" element={<CancellationPolicyPage />} />
         <Route path="/product/:id" element={<ProductPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/login" element={<LoginPage mode="customer" />} />

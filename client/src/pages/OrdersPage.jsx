@@ -749,8 +749,19 @@ const OrdersPage = () => {
                 />
               </label>
 
+              <div className="policy-link-row" style={{ marginBottom: "0.75rem" }}>
+                <Link
+                  to="/cancellation-policy#order-cancellation-policy"
+                  className="subtext-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  বাতিল নীতিমালা দেখুন (সম্পূর্ণ)
+                </Link>
+              </div>
+
               <div className="return-policy-box cancellation-policy-box">
-                <h4 className="cancellation-policy-title">Cancellation policy</h4>
+                <h4 className="cancellation-policy-title">বাতিল নীতিমালা</h4>
                 <CancellationPolicyContent />
               </div>
 
@@ -761,7 +772,7 @@ const OrdersPage = () => {
                   onChange={(e) => setCancelPolicyAccepted(e.target.checked)}
                   required
                 />
-                I have read and agree to the cancellation policy.
+                আমি বাতিল নীতিমালা পড়েছি এবং সম্মত।
               </label>
 
               <div className="return-modal-actions">
