@@ -10,6 +10,12 @@ import {
   buildRefundTransId
 } from "../utils/sslcommerzRefund.js";
 import { appendAdminNote, actorFromUser, setOrderStatus } from "../utils/orderLifecycle.js";
+import {
+  notifyCancellationApproved,
+  notifyOrderRefunded,
+  notifyRefundFailed
+} from "../utils/notifyUserEmail.js";
+
 const finalizeReturnRequestAfterRefund = async ({
   returnRequestId,
   order,
@@ -197,6 +203,13 @@ export const processRefund = async (req, res) => {
 
         await order.save();
 
+        notifyOrderRefunded(order, {
+          amount: refundAmount,
+          note: refundRemarks,
+          transactionId: refundResponse.refundRefId || refundRefId,
+          method: "SSLCommerz (original payment method)"
+        });
+
         if (sourceType === "return") {
           await finalizeReturnRequestAfterRefund({
             returnRequestId: req.body.returnRequestId,
@@ -217,6 +230,7 @@ export const processRefund = async (req, res) => {
       await refund.save();
 
       if (!refundResponse.success) {
+        notifyRefundFailed(order, refundResponse.message || "Gateway refund failed");
         return res.status(400).json({
           message: refundResponse.message || "SSLCommerz refund failed",
           refund,
@@ -237,6 +251,8 @@ export const processRefund = async (req, res) => {
 
       order.refundStatus = "failed";
       await order.save();
+
+      notifyRefundFailed(order, error.message);
 
       return res.status(502).json({
         message: "Refund processing failed",
@@ -412,8 +428,15 @@ export const retryFailedRefund = async (req, res) => {
         }
 
         await order.save();
+        notifyOrderRefunded(order, {
+          amount: refund.refundAmount,
+          note: remarks || refund.refundRemarks,
+          transactionId: refundResponse.refundRefId || refundRefId,
+          method: "SSLCommerz (original payment method)"
+        });
       } else {
         refund.failureReason = refundResponse.message;
+        notifyRefundFailed(order, refundResponse.message);
       }
 
       await refund.save();
@@ -483,6 +506,8 @@ export const approveCancellation = async (req, res) => {
     await order.save();
 
     const populated = await Order.findById(order._id).populate("user", "name email");
+
+    notifyCancellationApproved(order);
 
     return res.json({
       message: "Cancellation approved",

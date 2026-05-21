@@ -1,47 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import clsx from "clsx";
-import { GitCompare, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { addToCartAjax } from "../../app/addToCartAjax";
+import ProductColorSelector from "./ProductColorSelector";
 
-const CMP_KEY = "toykart-compare-v1";
-
-const readJson = (key, fallback) => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-};
-
-const writeJson = (key, val) => {
-  localStorage.setItem(key, JSON.stringify(val));
-};
-
-const ProductPurchaseActions = ({ product, inStock }) => {
+const ProductPurchaseActions = ({
+  product,
+  inStock,
+  variants,
+  selectedVariant,
+  onVariantSelect,
+  needsColor
+}) => {
   const dispatch = useDispatch();
   const [qty, setQty] = useState(1);
-  const [cmp, setCmp] = useState(false);
   const [cartMsg, setCartMsg] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
   const toastTimer = useRef(null);
 
   const id = product?._id;
-
-  useEffect(() => {
-    if (!id) return;
-    const c = readJson(CMP_KEY, []);
-    setCmp(Array.isArray(c) && c.includes(id));
-  }, [id]);
-
-  const maxQty = useMemo(() => Math.max(1, product?.countInStock || 0), [product?.countInStock]);
+  const variantStock = selectedVariant ? Number(selectedVariant.stock) || 0 : Number(product?.countInStock) || 0;
+  const maxQty = useMemo(() => Math.max(1, variantStock), [variantStock]);
+  const canAdd = inStock && (!needsColor || selectedVariant);
 
   useEffect(() => {
     setQty(1);
-  }, [id]);
+  }, [id, selectedVariant?._id]);
 
   useEffect(
     () => () => {
@@ -50,28 +36,19 @@ const ProductPurchaseActions = ({ product, inStock }) => {
     []
   );
 
-  const toggleCompare = () => {
-    if (!id) return;
-    let c = readJson(CMP_KEY, []);
-    if (!Array.isArray(c)) c = [];
-    const set = new Set(c);
-    if (set.has(id)) set.delete(id);
-    else {
-      if (set.size >= 4) return;
-      set.add(id);
-    }
-    const next = [...set];
-    writeJson(CMP_KEY, next);
-    setCmp(set.has(id));
-  };
-
   const addCart = async () => {
-    if (!inStock || !product) return;
+    if (!canAdd || !product) return;
     if (isAdding) return;
     const safeQty = Math.min(Math.max(1, qty), maxQty);
     setIsAdding(true);
     try {
-      await addToCartAjax({ dispatch, product, quantity: safeQty });
+      await addToCartAjax({
+        dispatch,
+        product,
+        quantity: safeQty,
+        variant: selectedVariant,
+        variantId: selectedVariant?._id
+      });
       setCartMsg("Added to cart");
       setIsAdded(true);
       window.setTimeout(() => setIsAdded(false), 900);
@@ -88,6 +65,15 @@ const ProductPurchaseActions = ({ product, inStock }) => {
 
   return (
     <div className="pd-purchase">
+      {variants?.length > 0 ? (
+        <ProductColorSelector
+          variants={variants}
+          selectedId={selectedVariant?._id}
+          onSelect={onVariantSelect}
+          required={needsColor}
+        />
+      ) : null}
+
       <div className="pd-qty-row">
         <label className="pd-qty-label" htmlFor="pd-qty">
           Quantity
@@ -99,7 +85,7 @@ const ProductPurchaseActions = ({ product, inStock }) => {
           min={1}
           max={maxQty}
           value={qty}
-          disabled={!inStock}
+          disabled={!canAdd}
           onChange={(e) => setQty(Math.min(maxQty, Math.max(1, Number(e.target.value) || 1)))}
         />
       </div>
@@ -107,22 +93,16 @@ const ProductPurchaseActions = ({ product, inStock }) => {
         <button
           type="button"
           className={clsx("btn btn-primary pd-add-cart", isAdded && "cart-btn-added")}
-          disabled={!inStock || isAdding}
+          disabled={!canAdd || isAdding}
           onClick={addCart}
         >
           <ShoppingCart size={20} />
-          {isAdding ? "Adding..." : isAdded ? "Added" : "Add to cart"}
-        </button>
-        <button
-          type="button"
-          className={clsx("btn btn-secondary pd-icon-cta", cmp && "is-active")}
-          aria-pressed={cmp}
-          aria-label={cmp ? "Remove from compare" : "Add to compare"}
-          onClick={toggleCompare}
-        >
-          <GitCompare size={20} />
+          {isAdding ? "Adding..." : isAdded ? "Added" : inStock ? "Add to cart" : "Out of stock"}
         </button>
       </div>
+      {needsColor && !selectedVariant ? (
+        <p className="pd-color-hint">Select a color to add this item to your cart.</p>
+      ) : null}
       {cartMsg ? <p className="pd-cart-toast">{cartMsg}</p> : null}
     </div>
   );

@@ -9,11 +9,12 @@ import {
   Paper,
   Stack,
   Button,
-  IconButton,
   TextField as MuiTextField,
   Typography
 } from "@mui/material";
-import { Trash2 } from "lucide-react";
+import ProductCountInStockInput from "../components/ProductCountInStockInput";
+import ProductInventorySection from "../components/ProductInventorySection";
+import { transformProductForSave } from "../utils/productFormTransform";
 import {
   List,
   Datagrid,
@@ -40,7 +41,6 @@ import {
   useNotify
 } from "react-admin";
 import { useFormContext, useWatch } from "react-hook-form";
-import api from "../../api";
 import { AdminFormPageLayout, AdminFormSection } from "../components/AdminFormChrome";
 
 const AutoGenerateFields = () => {
@@ -145,186 +145,12 @@ const ProductFormAside = ({ mode }) => (
       <Typography component="ul" variant="body2" color="text.secondary" sx={{ m: 0, pl: 2.25, lineHeight: 1.6 }}>
         <li>SKU and slug must stay unique in the catalog.</li>
         <li>Descriptions need at least 20 characters.</li>
-        <li>Add a primary image and optional gallery shots under Merchandising (5 MB each).</li>
+        <li>Under Images & stock, pick no color variants or multiple colors, then upload photos (5 MB each).</li>
         <li>Save lives in the sidebar so it is always one glance away.</li>
       </Typography>
     </Paper>
   </Stack>
 );
-
-const ProductImageInput = (props) => {
-  const { field, fieldState, isRequired } = useInput(props);
-  const notify = useNotify();
-  const { invalid, error } = fieldState;
-
-  const onPick = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const { data } = await api.post("admin/upload", fd);
-      field.onChange(data.url);
-      notify("Image uploaded", { type: "success" });
-    } catch (err) {
-      const msg = err.response?.data?.message || "Image upload failed";
-      notify(msg, { type: "error" });
-    }
-  };
-
-  return (
-    <Box width="100%">
-      <Stack spacing={1.5}>
-        <MuiTextField
-          label={props.label || "Product image"}
-          value={field.value ?? ""}
-          onChange={(e) => field.onChange(e.target.value)}
-          onBlur={field.onBlur}
-          error={invalid}
-          helperText={error?.message || props.helperText}
-          required={isRequired}
-          fullWidth
-          InputLabelProps={{ shrink: Boolean(field.value) }}
-        />
-        <Box>
-          <Button variant="outlined" component="label" size="small">
-            Upload image
-            <input type="file" accept="image/*" hidden onChange={onPick} />
-          </Button>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-            JPEG, PNG, or WebP up to 5 MB. The field updates with a public URL after upload.
-          </Typography>
-        </Box>
-        {field.value ? (
-          <Box
-            component="img"
-            src={field.value}
-            alt=""
-            sx={{
-              maxWidth: 320,
-              maxHeight: 220,
-              objectFit: "contain",
-              borderRadius: 1,
-              border: "1px solid",
-              borderColor: "divider",
-              alignSelf: "flex-start"
-            }}
-          />
-        ) : null}
-      </Stack>
-    </Box>
-  );
-};
-
-const ProductGalleryInput = (props) => {
-  const { field, fieldState } = useInput({ ...props, defaultValue: [] });
-  const notify = useNotify();
-  const { invalid, error } = fieldState;
-  const list = Array.isArray(field.value) ? field.value : [];
-
-  const uploadFiles = async (files) => {
-    const urls = await Promise.all(
-      files.map(async (file) => {
-        const fd = new FormData();
-        fd.append("file", file);
-        const { data } = await api.post("/admin/upload", fd);
-        return data.url;
-      })
-    );
-    return urls;
-  };
-
-  const onPick = async (e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
-    if (!files.length) return;
-    try {
-      const urls = await uploadFiles(files);
-      field.onChange([...list, ...urls]);
-      notify(urls.length === 1 ? "Gallery image uploaded" : `${urls.length} gallery images uploaded`, {
-        type: "success"
-      });
-    } catch (err) {
-      const msg = err.response?.data?.message || "Upload failed";
-      notify(msg, { type: "error" });
-    }
-  };
-
-  const removeAt = (index) => {
-    field.onChange(list.filter((_, i) => i !== index));
-  };
-
-  return (
-    <Box width="100%">
-      <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
-        {props.label || "Gallery images"}
-      </Typography>
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
-        Extra photos shown as thumbnails on the product page. Upload one or many at a time (same limits as
-        the primary image).
-      </Typography>
-      <Button variant="outlined" component="label" size="small" sx={{ mb: 1.5 }}>
-        Add gallery images
-        <input type="file" accept="image/*" hidden multiple onChange={onPick} />
-      </Button>
-      {invalid && error?.message ? (
-        <Typography variant="caption" color="error" display="block">
-          {error.message}
-        </Typography>
-      ) : null}
-      {list.length > 0 ? (
-        <Stack spacing={1} sx={{ mt: 1 }}>
-          {list.map((url, index) => (
-            <Paper
-              key={`${url}-${index}`}
-              variant="outlined"
-              sx={{
-                p: 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                borderRadius: 1.5
-              }}
-            >
-              <Box
-                component="img"
-                src={url}
-                alt=""
-                sx={{
-                  width: 72,
-                  height: 72,
-                  objectFit: "cover",
-                  borderRadius: 1,
-                  flexShrink: 0
-                }}
-              />
-              <MuiTextField
-                size="small"
-                fullWidth
-                label="URL"
-                value={url}
-                onChange={(e) => {
-                  const next = [...list];
-                  next[index] = e.target.value;
-                  field.onChange(next);
-                }}
-                onBlur={field.onBlur}
-              />
-              <IconButton aria-label="Remove gallery image" onClick={() => removeAt(index)} edge="end" size="small">
-                <Trash2 size={20} strokeWidth={2} />
-              </IconButton>
-            </Paper>
-          ))}
-        </Stack>
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          No gallery images yet.
-        </Typography>
-      )}
-    </Box>
-  );
-};
 
 const statusChoices = [
   { id: "active", name: "Active" },
@@ -351,8 +177,28 @@ const statusChip = (status) => {
   return <Chip size="small" label={label} color={color} variant="outlined" />;
 };
 
+const validateProductForm = (values) => {
+  const errors = {};
+  const hasColorVariants = Boolean(values?.hasColorVariants);
+  const variants = values?.colorVariants;
+
+  if (hasColorVariants && Array.isArray(variants) && variants.length > 0) {
+    const featured = variants.find((v) => v.isFeatured) ?? variants[0];
+    if (!String(featured?.colorName ?? "").trim()) {
+      errors.colorVariants = "Storefront color needs a color name.";
+    } else if (!String(featured?.image ?? "").trim()) {
+      errors.colorVariants = "Storefront color needs a main image upload.";
+    }
+  } else if (!hasColorVariants) {
+    if (!String(values?.image ?? "").trim()) {
+      errors.image = "Product image is required when not using color variants.";
+    }
+  }
+  return errors;
+};
+
 const productFormHint =
-  "Sections group related fields. The companion column holds Publish (save), shortcuts, and tips—on phones it appears above the fields so Save stays easy to find. Add photos under Merchandising.";
+  "Choose no color variants for a single image and stock, or multiple colors for per-color images and stock.";
 
 const ProductFormFields = ({ mode }) => (
   <AdminFormPageLayout
@@ -402,18 +248,24 @@ const ProductFormFields = ({ mode }) => (
         helperText="Optional higher list price to show a strikethrough discount (leave empty if none)"
         fullWidth
       />
-      <NumberInput source="countInStock" validate={required()} min={0} step={1} fullWidth />
+      <ProductCountInStockInput />
+    </AdminFormSection>
+
+    <AdminFormSection
+      sectionId="section-product-inventory"
+      title="Images & stock"
+      description="Choose whether this product has color variants, then add images and inventory."
+    >
+      <ProductInventorySection />
     </AdminFormSection>
 
     <AdminFormSection
       sectionId="section-product-merch"
       title="Merchandising"
-      description="Brand, imagery, tags, and attributes shoppers filter by."
+      description="Brand, tags, and attributes shoppers filter by."
     >
       <TextInput source="brand" fullWidth />
       <TextInput source="subcategory" fullWidth />
-      <ProductImageInput source="image" label="Product image" />
-      <ProductGalleryInput source="gallery" label="Gallery images" />
       <SelectInput source="ageGroup" choices={ageChoices} fullWidth />
       <TextInput source="material" fullWidth />
       <TextInput
@@ -474,7 +326,7 @@ export const ProductList = () => (
 
 export const ProductEdit = () => (
   <Edit mutationMode="pessimistic">
-    <SimpleForm toolbar={false}>
+    <SimpleForm toolbar={false} transform={transformProductForSave} validate={validateProductForm}>
       <ProductFormFields mode="edit" />
     </SimpleForm>
   </Edit>
@@ -484,7 +336,7 @@ const defaultProductValues = (categoryId) => ({
   category: categoryId != null ? String(categoryId) : "",
   subcategory: "General",
   brand: "ToyKart",
-  image: "https://placehold.co/640x480",
+  image: "",
   description:
     "Write a short, shopper-friendly description of this toy. You can edit this text before publishing.",
   status: "active",
@@ -497,7 +349,9 @@ const defaultProductValues = (categoryId) => ({
   dimensionsCm: { length: 0, width: 0, height: 0 },
   gallery: [],
   tags: "",
-  countInStock: 0
+  countInStock: 0,
+  hasColorVariants: false,
+  colorVariants: []
 });
 
 export const ProductCreate = () => {
@@ -524,7 +378,12 @@ export const ProductCreate = () => {
   const firstId = data[0].id ?? "";
   return (
     <Create>
-      <SimpleForm toolbar={false} defaultValues={defaultProductValues(firstId)}>
+      <SimpleForm
+        toolbar={false}
+        defaultValues={defaultProductValues(firstId)}
+        transform={transformProductForSave}
+        validate={validateProductForm}
+      >
         <AutoGenerateFields />
         <ProductFormFields mode="create" />
       </SimpleForm>

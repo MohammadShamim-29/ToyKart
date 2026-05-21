@@ -1,17 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ShieldCheck, Sparkles, Star, Truck } from "lucide-react";
 import api from "../api";
-import { categoryLabel } from "../utils/categoryLabel";
 import { useDispatch, useSelector } from "react-redux";
-import { addToCartAjax } from "../app/addToCartAjax";
-
-const currency = new Intl.NumberFormat("en-BD", {
-  style: "currency",
-  currency: "BDT",
-  maximumFractionDigits: 0
-});
+import { addToCartAjax, buyNowAjax } from "../app/addToCartAjax";
+import ProductCard from "../components/ProductCard";
 
 const heroSlides = [
   {
@@ -70,8 +64,10 @@ const HomePage = () => {
   const [activeSlide, setActiveSlide] = useState(0);
   const [addingId, setAddingId] = useState("");
   const [addedId, setAddedId] = useState("");
+  const [buyingId, setBuyingId] = useState("");
   const { userInfo } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -103,6 +99,38 @@ const HomePage = () => {
     const pick = featured.length > 0 ? featured : products;
     return pick.slice(0, 6);
   }, [products]);
+
+  const handleAddToCart = async (product, variant) => {
+    setAddingId(product._id);
+    try {
+      await addToCartAjax({
+        dispatch,
+        product,
+        quantity: 1,
+        variant,
+        variantId: variant?._id
+      });
+      setAddedId(product._id);
+      window.setTimeout(() => {
+        setAddedId((prev) => (prev === product._id ? "" : prev));
+      }, 900);
+    } catch {
+      // keep card quiet on failure
+    } finally {
+      setAddingId((prev) => (prev === product._id ? "" : prev));
+    }
+  };
+
+  const handleBuyNow = async (product, variant) => {
+    setBuyingId(product._id);
+    try {
+      await buyNowAjax({ dispatch, navigate, product, quantity: 1, variant, variantId: variant?._id });
+    } catch {
+      // keep card quiet on failure
+    } finally {
+      setBuyingId((prev) => (prev === product._id ? "" : prev));
+    }
+  };
 
   const currentSlide = heroSlides[activeSlide];
 
@@ -223,47 +251,15 @@ const HomePage = () => {
         {!loading && !error && featuredProducts.length > 0 && (
           <div className="grid cards-grid">
             {featuredProducts.map((product) => (
-              <article className="card product-card product-card-opal" key={product._id}>
-                <div className="product-card-opal-media">
-                  <img src={product.image} alt={product.name} loading="lazy" />
-                  <span className="product-card-chip">{categoryLabel(product.category)}</span>
-                </div>
-                <div className="stack-sm product-card-opal-body">
-                  <h3 className="product-card-opal-title">{product.name}</h3>
-                  <p className="clamp product-card-opal-copy">{product.description}</p>
-                  <div className="product-meta product-card-opal-meta">
-                    <span className="price">{currency.format(product.price)}</span>
-                    <span className="stock">Age {product.ageGroup}</span>
-                  </div>
-                  <div className="product-card-opal-foot" style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      type="button"
-                      className={`btn btn-primary ${addedId === product._id ? "cart-btn-added" : ""}`}
-                      style={{ flex: 1 }}
-                      disabled={!product.countInStock || addingId === product._id}
-                      onClick={async () => {
-                        setAddingId(product._id);
-                        try {
-                          await addToCartAjax({ dispatch, product, quantity: 1 });
-                          setAddedId(product._id);
-                          window.setTimeout(() => {
-                            setAddedId((prev) => (prev === product._id ? "" : prev));
-                          }, 900);
-                        } catch {
-                          // keep card quiet on failure
-                        } finally {
-                          setAddingId((prev) => (prev === product._id ? "" : prev));
-                        }
-                      }}
-                    >
-                      {addingId === product._id ? "Adding..." : addedId === product._id ? "Added" : "Add to cart"}
-                    </button>
-                    <Link className="btn btn-secondary" to={`/product/${product._id}`} style={{ flex: 1 }}>
-                      Details
-                    </Link>
-                  </div>
-                </div>
-              </article>
+              <ProductCard
+                key={product._id}
+                product={product}
+                addingId={addingId}
+                addedId={addedId}
+                buyingId={buyingId}
+                onAddToCart={handleAddToCart}
+                onBuyNow={handleBuyNow}
+              />
             ))}
           </div>
         )}

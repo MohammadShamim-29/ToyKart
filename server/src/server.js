@@ -1,22 +1,26 @@
-import dotenv from "dotenv";
+import "./config/loadEnv.js";
 import http from "http";
-import path from "path";
-import { fileURLToPath } from "url";
 import app from "./app.js";
 import { connectDB } from "./config/db.js";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Always load server/.env regardless of where the command is run from.
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
-// Optional shared env file at repo root.
-dotenv.config({ path: path.resolve(__dirname, "../../payment.env") });
-// Also allow root-level .env overrides if present.
-dotenv.config();
+import { getEmailMode, verifyEmailConnection } from "./utils/sendEmail.js";
 
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
+
+  try {
+    const emailCheck = await verifyEmailConnection();
+    if (emailCheck.ok) {
+      console.log(`[ToyKart] Email ready: ${emailCheck.mode} (${emailCheck.user})`);
+    } else {
+      console.warn("[ToyKart] Email: dev mode — emails print to console only");
+    }
+  } catch (err) {
+    console.error("[ToyKart] Email connection FAILED:", err.message);
+    console.error("  Fix GMAIL_USER / GMAIL_APP_PASSWORD in server/.env and restart.");
+  }
+
   const server = http.createServer(app);
 
   server.on("error", (err) => {

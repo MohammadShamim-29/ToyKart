@@ -7,6 +7,8 @@ import {
   getAllowedReturnTransitions,
   isCodOrder
 } from "../utils/returnRequestLifecycle.js";
+import { notifyReturnStatusIfNeeded } from "../utils/notifyUserEmail.js";
+
 const asTrimmed = (v) => String(v ?? "").trim();
 
 const mapRecord = (doc) => {
@@ -139,6 +141,11 @@ export const updateAdminReturnRequest = async (req, res) => {
   );
   await row.populate("user", "name email");
 
+  const orderForNotify = await Order.findById(row.order);
+  if (status && status !== previousStatus) {
+    notifyReturnStatusIfNeeded(row, previousStatus, orderForNotify);
+  }
+
   return res.json(mapRecord(row));
 };
 
@@ -164,6 +171,8 @@ export const schedulePickup = async (req, res) => {
   });
 
   await row.save();
+  const order = await Order.findById(row.order);
+  notifyReturnStatusIfNeeded(row, "APPROVED_FOR_PICKUP", order);
   return res.json(mapRecord(row));
 };
 
@@ -202,6 +211,7 @@ export const markPickedUp = async (req, res) => {
   }
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, "PICKUP_SCHEDULED", order);
   return res.json(mapRecord(row));
 };
 
@@ -229,6 +239,7 @@ export const recordInspection = async (req, res) => {
   });
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, "PICKED_UP", await Order.findById(row.order));
   return res.json(mapRecord(row));
 };
 
@@ -239,6 +250,7 @@ export const approveRefund = async (req, res) => {
   const row = await ReturnRequest.findById(id);
   if (!row) return res.status(404).json({ message: "Return request not found" });
 
+  const prevStatus = row.status;
   row.refundDetails = {
     approvedAmount: Number(approvedAmount || 0),
     deductions: Number(deductions || 0),
@@ -254,6 +266,7 @@ export const approveRefund = async (req, res) => {
   });
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, prevStatus, await Order.findById(row.order));
   return res.json(mapRecord(row));
 };
 
@@ -264,6 +277,7 @@ export const rejectRefund = async (req, res) => {
   const row = await ReturnRequest.findById(id);
   if (!row) return res.status(404).json({ message: "Return request not found" });
 
+  const prevStatus = row.status;
   row.rejectionReason = rejectionReason;
   row.status = "REFUND_REJECTED";
   row.timeline.push({
@@ -274,6 +288,7 @@ export const rejectRefund = async (req, res) => {
   });
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, prevStatus, await Order.findById(row.order));
   return res.json(mapRecord(row));
 };
 
@@ -283,6 +298,8 @@ export const processRefundFull = async (req, res) => {
 
   const row = await ReturnRequest.findById(id);
   if (!row) return res.status(404).json({ message: "Return request not found" });
+
+  const prevStatus = row.status;
 
   if (row.refundDetails) {
     row.refundDetails.transactionId = transactionId;
@@ -322,6 +339,7 @@ export const processRefundFull = async (req, res) => {
   }
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, prevStatus, order);
   return res.json(mapRecord(row));
 };
 
@@ -332,6 +350,7 @@ export const returnItemToCustomer = async (req, res) => {
   const row = await ReturnRequest.findById(id);
   if (!row) return res.status(404).json({ message: "Return request not found" });
 
+  const prevStatus = row.status;
   row.returnToCustomerDetails = {
     trackingNumber,
     shippingCharge: Number(shippingCharge || 0),
@@ -347,6 +366,7 @@ export const returnItemToCustomer = async (req, res) => {
   });
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, prevStatus, await Order.findById(row.order));
   return res.json(mapRecord(row));
 };
 
@@ -428,6 +448,7 @@ export const approveReplacement = async (req, res) => {
   }
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, "INSPECTION_COMPLETED", originalOrder);
   await row.populate("replacementDetails.replacementOrder", "_id totalPrice status");
   return res.json(mapRecord(row));
 };
@@ -464,6 +485,7 @@ export const markReplacementShipped = async (req, res) => {
   });
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, "REPLACEMENT_APPROVED", await Order.findById(row.order));
   return res.json(mapRecord(row));
 };
 
@@ -480,6 +502,7 @@ export const markReplacementDelivered = async (req, res) => {
     return res.status(400).json({ message: "Replacement must be shipped before marking as delivered." });
   }
 
+  const prevStatus = row.status;
   row.replacementDetails = {
     ...row.replacementDetails,
     deliveredAt: new Date()
@@ -494,5 +517,6 @@ export const markReplacementDelivered = async (req, res) => {
   });
 
   await row.save();
+  notifyReturnStatusIfNeeded(row, prevStatus, await Order.findById(row.order));
   return res.json(mapRecord(row));
 };

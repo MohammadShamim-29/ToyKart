@@ -1,24 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSelector } from "react-redux";
 import clsx from "clsx";
+import api from "../../api";
 import StarRating, { StarRatingReadOnly } from "./StarRating";
-
-const REVIEWS_KEY = "toykart-product-reviews-v1";
-
-const loadAll = () => {
-  try {
-    const raw = localStorage.getItem(REVIEWS_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-};
-
-const saveForProduct = (productId, entries) => {
-  const all = loadAll();
-  all[productId] = entries;
-  localStorage.setItem(REVIEWS_KEY, JSON.stringify(all));
-};
 
 const tabs = [
   { id: "description", label: "Description" },
@@ -26,20 +10,61 @@ const tabs = [
   { id: "reviews", label: "Reviews" }
 ];
 
-const ProductDetailTabs = ({ product }) => {
+const reviewCountLabel = (n) => {
+  const count = Number(n) || 0;
+  return count === 1 ? "1 review" : `${count} reviews`;
+};
+
+const ProductDetailTabs = ({ product, onRatingUpdated }) => {
+  const { userInfo } = useSelector((state) => state.auth);
   const [active, setActive] = useState("description");
   const [reviews, setReviews] = useState([]);
+  const [summaryRating, setSummaryRating] = useState(0);
+  const [summaryCount, setSummaryCount] = useState(0);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
   const [formName, setFormName] = useState("");
   const [formRating, setFormRating] = useState(5);
   const [formBody, setFormBody] = useState("");
 
   const productId = product?._id;
+  const onRatingUpdatedRef = useRef(onRatingUpdated);
+  useEffect(() => {
+    onRatingUpdatedRef.current = onRatingUpdated;
+  }, [onRatingUpdated]);
+
+  const fetchReviews = useCallback(async () => {
+    if (!productId) return;
+    setLoadingReviews(true);
+    try {
+      const { data } = await api.get(`/products/${productId}/reviews`);
+      setReviews(Array.isArray(data.reviews) ? data.reviews : []);
+      const rating = Number(data.rating) || 0;
+      const numReviews = Number(data.numReviews) || 0;
+      setSummaryRating(rating);
+      setSummaryCount(numReviews);
+      onRatingUpdatedRef.current?.({ rating, numReviews });
+    } catch {
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  }, [productId]);
 
   useEffect(() => {
     if (!productId) return;
-    const all = loadAll();
-    setReviews(Array.isArray(all[productId]) ? all[productId] : []);
-  }, [productId]);
+    setSummaryRating(Number(product.rating) || 0);
+    setSummaryCount(Number(product.numReviews) || 0);
+    fetchReviews();
+  }, [productId, fetchReviews]);
+
+  useEffect(() => {
+    if (userInfo?.name) {
+      setFormName(userInfo.name);
+    }
+  }, [userInfo?.name]);
 
   const additionalRows = useMemo(() => {
     if (!product) return [];
@@ -66,26 +91,33 @@ const ProductDetailTabs = ({ product }) => {
     ];
   }, [product]);
 
-  const submitReview = useCallback(
-    (e) => {
-      e.preventDefault();
-      if (!productId || !formBody.trim()) return;
-      const entry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        author: formName.trim() || "Verified buyer",
+  const submitReview = async (e) => {
+    e.preventDefault();
+    if (!productId || !formBody.trim()) return;
+    setSubmitting(true);
+    setFormError("");
+    setFormSuccess("");
+    try {
+      const { data } = await api.post(`/products/${productId}/reviews`, {
         rating: formRating,
         body: formBody.trim(),
-        createdAt: new Date().toISOString()
-      };
-      const next = [entry, ...reviews];
-      setReviews(next);
-      saveForProduct(productId, next);
+        authorName: formName.trim() || undefined
+      });
+      setReviews((prev) => [data.review, ...prev]);
+      setSummaryRating(Number(data.rating) || 0);
+      setSummaryCount(Number(data.numReviews) || 0);
+      onRatingUpdated?.({ rating: data.rating, numReviews: data.numReviews });
       setFormBody("");
-      setFormName("");
+      if (!userInfo?.name) setFormName("");
       setFormRating(5);
-    },
-    [productId, formBody, formName, formRating, reviews]
-  );
+      setFormSuccess("Thank you! Your review was published.");
+      window.setTimeout(() => setFormSuccess(""), 4000);
+    } catch (err) {
+      setFormError(err.response?.data?.message || "Could not submit your review. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (!product) return null;
 
@@ -104,6 +136,7 @@ const ProductDetailTabs = ({ product }) => {
             onClick={() => setActive(t.id)}
           >
             {t.label}
+            {t.id === "reviews" && summaryCount > 0 ? ` (${summaryCount})` : ""}
           </button>
         ))}
       </div>
@@ -151,20 +184,27 @@ const ProductDetailTabs = ({ product }) => {
             <div className="pd-reviews-summary">
               <h3 className="pd-reviews-heading">Customer reviews</h3>
               <div className="pd-reviews-avg">
-                <StarRatingReadOnly value={product.rating} size={20} />
-                <span className="pd-reviews-avg-num">{Number(product.rating || 0).toFixed(1)}</span>
-                <span className="subtext">
-                  {product.numReviews ?? 0} catalog ratings · written notes below stay on this device
-                </span>
+                <StarRatingReadOnly value={summaryRating} size={20} />
+                <span className="pd-reviews-avg-num">{summaryRating.toFixed(1)}</span>
+                <span className="subtext">{reviewCountLabel(summaryCount)}</span>
               </div>
             </div>
 
             <form className="pd-review-form form" onSubmit={submitReview}>
               <h3 className="pd-review-form-title">Write a review</h3>
-              <label className="pd-review-label">
-                Your name
-                <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Optional" />
-              </label>
+              {!userInfo ? (
+                <label className="pd-review-label">
+                  Your name
+                  <input
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="Required if not signed in"
+                    required
+                  />
+                </label>
+              ) : (
+                <p className="subtext">Posting as {userInfo.name}</p>
+              )}
               <div className="pd-review-rating-row">
                 <span id="review-rating-label" className="pd-review-label-text">
                   Rating
@@ -175,33 +215,42 @@ const ProductDetailTabs = ({ product }) => {
                 Review
                 <textarea
                   required
+                  minLength={10}
                   rows={4}
                   value={formBody}
                   onChange={(e) => setFormBody(e.target.value)}
-                  placeholder="Share what you loved or what we could improve."
+                  placeholder="Share what you loved or what we could improve (min. 10 characters)."
                 />
               </label>
-              <button type="submit" className="btn btn-primary">
-                Submit review
+              {formError ? <p className="error">{formError}</p> : null}
+              {formSuccess ? <p className="notice">{formSuccess}</p> : null}
+              <button type="submit" className="btn btn-primary" disabled={submitting}>
+                {submitting ? "Submitting..." : "Submit review"}
               </button>
             </form>
 
-            <ul className="pd-review-list">
-              {reviews.length === 0 ? (
-                <li className="subtext">No written reviews yet. Be the first to share your thoughts.</li>
-              ) : (
-                reviews.map((r) => (
-                  <li key={r.id} className="pd-review-item">
-                    <div className="pd-review-item-head">
-                      <StarRatingReadOnly value={r.rating} size={14} />
-                      <strong>{r.author}</strong>
-                      <span className="subtext">{new Date(r.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <p>{r.body}</p>
-                  </li>
-                ))
-              )}
-            </ul>
+            {loadingReviews ? (
+              <p className="subtext">Loading reviews...</p>
+            ) : (
+              <ul className="pd-review-list">
+                {reviews.length === 0 ? (
+                  <li className="subtext">No reviews yet. Be the first to share your thoughts.</li>
+                ) : (
+                  reviews.map((r) => (
+                    <li key={r._id} className="pd-review-item">
+                      <div className="pd-review-item-head">
+                        <StarRatingReadOnly value={r.rating} size={14} />
+                        <strong>{r.authorName}</strong>
+                        <span className="subtext">
+                          {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}
+                        </span>
+                      </div>
+                      <p>{r.body}</p>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
           </div>
         </section>
       </div>

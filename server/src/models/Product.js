@@ -1,5 +1,19 @@
 import mongoose from "mongoose";
 
+const colorVariantSchema = new mongoose.Schema(
+  {
+    colorName: { type: String, required: true, trim: true, maxlength: 60 },
+    colorCode: { type: String, trim: true, default: "#cccccc" },
+    stock: { type: Number, required: true, min: 0, default: 0 },
+    sku: { type: String, trim: true, uppercase: true, default: "" },
+    image: { type: String, default: "" },
+    gallery: [{ type: String }],
+    /** Shown on shop cards and selected first on the product page */
+    isFeatured: { type: Boolean, default: false }
+  },
+  { _id: true }
+);
+
 const dimensionsSchema = new mongoose.Schema(
   {
     length: { type: Number, min: 0, default: 0 },
@@ -48,6 +62,7 @@ const productSchema = new mongoose.Schema(
     compareAtPrice: { type: Number, min: 0 },
     currency: { type: String, enum: ["BDT"], default: "BDT" },
     countInStock: { type: Number, required: true, min: 0, default: 0 },
+    colorVariants: { type: [colorVariantSchema], default: [] },
     soldCount: { type: Number, min: 0, default: 0 },
     isFeatured: { type: Boolean, default: false, index: true },
     newArrival: { type: Boolean, default: false, index: true },
@@ -64,6 +79,28 @@ const productSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+productSchema.pre("save", function syncVariantStock(next) {
+  const variants = this.colorVariants;
+  if (!Array.isArray(variants) || variants.length === 0) {
+    next();
+    return;
+  }
+
+  let featuredIndex = variants.findIndex((v) => v.isFeatured);
+  if (featuredIndex < 0) featuredIndex = 0;
+  variants.forEach((v, i) => {
+    v.isFeatured = i === featuredIndex;
+  });
+
+  const featured = variants[featuredIndex];
+  this.countInStock = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+  if (featured?.image) this.image = featured.image;
+  if (Array.isArray(featured?.gallery) && featured.gallery.length > 0) {
+    this.gallery = featured.gallery;
+  }
+  next();
+});
 
 productSchema.index({ name: "text", description: "text", tags: "text" });
 productSchema.index({ category: 1, subcategory: 1, price: 1 });

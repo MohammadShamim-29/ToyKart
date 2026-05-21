@@ -1,8 +1,12 @@
+import "./config/loadEnv.js";
 import "express-async-errors";
 import express from "express";
 import path from "path";
 import cors from "cors";
 import morgan from "morgan";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
+import mongoSanitize from "express-mongo-sanitize";
 import { fileURLToPath } from "url";
 import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
@@ -16,6 +20,7 @@ import adminShippingCountryRoutes from "./routes/adminShippingCountryRoutes.js";
 import adminShippingDistrictRoutes from "./routes/adminShippingDistrictRoutes.js";
 import adminOrderRoutes from "./routes/adminOrderRoutes.js";
 import adminDashboardRoutes from "./routes/adminDashboardRoutes.js";
+import adminInventoryRoutes from "./routes/adminInventoryRoutes.js";
 import adminUserRoutes from "./routes/adminUserRoutes.js";
 import returnRequestRoutes from "./routes/returnRequestRoutes.js";
 import adminReturnRequestRoutes from "./routes/adminReturnRequestRoutes.js";
@@ -32,12 +37,16 @@ const corsOrigin =
     ? process.env.CLIENT_URL || false
     : [...new Set([...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []), ...devOrigins])];
 
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
-    origin: corsOrigin
+    origin: corsOrigin,
+    credentials: true
   })
 );
-app.use(express.json());
+app.use(cookieParser());
+app.use(express.json({ limit: "1mb" }));
+app.use(mongoSanitize());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
@@ -59,6 +68,7 @@ app.use("/api/admin/upload", adminUploadRoutes);
 app.use("/api/admin/shipping-countries", adminShippingCountryRoutes);
 app.use("/api/admin/shipping-districts", adminShippingDistrictRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/admin/inventory", adminInventoryRoutes);
 app.use("/api/admin/orders", adminOrderRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/admin/returns", adminReturnRequestRoutes);

@@ -6,7 +6,10 @@ const orderItemSchema = new mongoose.Schema(
     qty: { type: Number, required: true, min: 1 },
     image: { type: String },
     price: { type: Number, required: true, min: 0 },
-    product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true }
+    product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
+    variantId: { type: mongoose.Schema.Types.ObjectId },
+    colorName: { type: String, trim: true, default: "" },
+    variantSku: { type: String, trim: true, uppercase: true, default: "" }
   },
   { _id: false }
 );

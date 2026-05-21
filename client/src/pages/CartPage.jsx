@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { Trash2 } from "lucide-react";
 import { removeLine, selectCartItems, setLineQty } from "../app/cartSlice";
 import { formatBdt } from "../utils/formatCurrency";
+import { cartLineKey } from "../utils/productVariants";
 
 const CartPage = () => {
   const items = useSelector(selectCartItems);
@@ -36,8 +37,9 @@ const CartPage = () => {
           {items.map((line) => {
             const max =
               Number.isFinite(line.countInStock) && line.countInStock > 0 ? line.countInStock : undefined;
+            const lineKey = cartLineKey(line.productId, line.variantId);
             return (
-              <li className="cart-line" key={line.productId}>
+              <li className="cart-line" key={lineKey}>
                 <Link to={`/product/${line.productId}`} className="cart-line-media">
                   <img src={line.image} alt={line.name} />
                 </Link>
@@ -45,6 +47,9 @@ const CartPage = () => {
                   <Link to={`/product/${line.productId}`} className="cart-line-name">
                     {line.name}
                   </Link>
+                  {line.colorName ? (
+                    <p className="cart-line-color">Color: {line.colorName}</p>
+                  ) : null}
                   <p className="cart-line-unit">{formatBdt(line.price)} each</p>
                   {max != null && (
                     <p className="subtext cart-line-stock">Up to {max} in stock</p>
@@ -60,7 +65,11 @@ const CartPage = () => {
                       value={line.qty}
                       onChange={(e) =>
                         dispatch(
-                          setLineQty({ productId: line.productId, qty: Number(e.target.value) || 1 })
+                          setLineQty({
+                            productId: line.productId,
+                            variantId: line.variantId,
+                            qty: Number(e.target.value) || 1
+                          })
                         )
                       }
                     />
@@ -71,7 +80,9 @@ const CartPage = () => {
                   type="button"
                   className="btn btn-ghost cart-line-remove"
                   aria-label={`Remove ${line.name}`}
-                  onClick={() => dispatch(removeLine(line.productId))}
+                  onClick={() =>
+                    dispatch(removeLine({ productId: line.productId, variantId: line.variantId }))
+                  }
                 >
                   <Trash2 size={18} />
                 </button>

@@ -7,7 +7,11 @@ import ShopPage from "./pages/ShopPage";
 import NewArrivalsPage from "./pages/NewArrivalsPage";
 import ProductPage from "./pages/ProductPage";
 import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+import AuthLoginPage from "./pages/auth/LoginPage";
+import AuthRegisterPage from "./pages/auth/RegisterPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
 import OrdersPage from "./pages/OrdersPage";
 import CartPage from "./pages/CartPage";
 import CheckoutPage from "./pages/CheckoutPage";
@@ -65,8 +69,11 @@ const App = () => {
         <Route path="/cancellation-policy" element={<CancellationPolicyPage />} />
         <Route path="/product/:id" element={<ProductPage />} />
         <Route path="/cart" element={<CartPage />} />
-        <Route path="/login" element={<LoginPage mode="customer" />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/login" element={<AuthLoginPage />} />
+        <Route path="/register" element={<AuthRegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route
           path="/checkout"
           element={

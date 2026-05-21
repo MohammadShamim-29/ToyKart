@@ -186,9 +186,6 @@ const Header = () => {
                       <li>
                         <Link className="browse-dropdown-link" to="/orders">My Orders</Link>
                       </li>
-                      <li>
-                        <Link className="browse-dropdown-link" to="/returns">Return Requests</Link>
-                      </li>
                       <li className="dropdown-divider"></li>
                       <li>
                         <button type="button" onClick={onLogout} className="browse-dropdown-link logout-btn">Logout</button>

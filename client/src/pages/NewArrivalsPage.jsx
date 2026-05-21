@@ -1,23 +1,51 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
-import { addToCartAjax } from "../app/addToCartAjax";
-import { categoryLabel } from "../utils/categoryLabel";
-
-const currency = new Intl.NumberFormat("en-BD", {
-  style: "currency",
-  currency: "BDT",
-  maximumFractionDigits: 0
-});
+import { addToCartAjax, buyNowAjax } from "../app/addToCartAjax";
+import ProductCard from "../components/ProductCard";
 
 const NewArrivalsPage = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [addingId, setAddingId] = useState("");
   const [addedId, setAddedId] = useState("");
+  const [buyingId, setBuyingId] = useState("");
+
+  const handleAddToCart = async (product, variant) => {
+    setAddingId(product._id);
+    try {
+      await addToCartAjax({
+        dispatch,
+        product,
+        quantity: 1,
+        variant,
+        variantId: variant?._id
+      });
+      setAddedId(product._id);
+      window.setTimeout(() => {
+        setAddedId((prev) => (prev === product._id ? "" : prev));
+      }, 900);
+    } catch {
+      // keep card quiet on failure
+    } finally {
+      setAddingId((prev) => (prev === product._id ? "" : prev));
+    }
+  };
+
+  const handleBuyNow = async (product, variant) => {
+    setBuyingId(product._id);
+    try {
+      await buyNowAjax({ dispatch, navigate, product, quantity: 1, variant, variantId: variant?._id });
+    } catch {
+      // keep card quiet on failure
+    } finally {
+      setBuyingId((prev) => (prev === product._id ? "" : prev));
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -78,55 +106,17 @@ const NewArrivalsPage = () => {
       {!loading && !error && items.length > 0 && (
         <div className="grid cards-grid">
           {items.map((product) => (
-            <article className="card product-card product-card-opal" key={product._id}>
-              <div className="product-card-opal-media">
-                <img src={product.image} alt={product.name} loading="lazy" />
-                <span className="product-card-chip">{categoryLabel(product.category)}</span>
-                {product.newArrival && (
-                  <span className="product-badge-new" style={{ position: 'absolute', top: '0.65rem', right: '0.65rem' }}>New</span>
-                )}
-              </div>
-              <div className="stack-sm product-card-opal-body">
-                <p className="subtext">
-                  Age {product.ageGroup}
-                </p>
-                <h3 className="product-card-opal-title">{product.name}</h3>
-                <p className="clamp product-card-opal-copy">{product.description}</p>
-                <div className="product-meta product-card-opal-meta">
-                  <span className="price">{currency.format(product.price)}</span>
-                  <span className="stock" style={{ color: product.countInStock ? 'var(--muted)' : 'var(--danger)' }}>
-                    {product.countInStock ? `Stock: ${product.countInStock}` : "Out of stock"}
-                  </span>
-                </div>
-                <div className="product-card-opal-foot" style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    type="button"
-                    className={`btn btn-primary ${addedId === product._id ? "cart-btn-added" : ""}`}
-                    style={{ flex: 1 }}
-                    disabled={!product.countInStock || addingId === product._id}
-                    onClick={async () => {
-                      setAddingId(product._id);
-                      try {
-                        await addToCartAjax({ dispatch, product, quantity: 1 });
-                        setAddedId(product._id);
-                        window.setTimeout(() => {
-                          setAddedId((prev) => (prev === product._id ? "" : prev));
-                        }, 900);
-                      } catch {
-                        // keep card quiet on failure
-                      } finally {
-                        setAddingId((prev) => (prev === product._id ? "" : prev));
-                      }
-                    }}
-                  >
-                    {addingId === product._id ? "Adding..." : addedId === product._id ? "Added" : "Add to cart"}
-                  </button>
-                  <Link className="btn btn-secondary" to={`/product/${product._id}`} style={{ flex: 1 }}>
-                    Details
-                  </Link>
-                </div>
-              </div>
-            </article>
+            <ProductCard
+              key={product._id}
+              product={product}
+              addingId={addingId}
+              addedId={addedId}
+              buyingId={buyingId}
+              onAddToCart={handleAddToCart}
+              onBuyNow={handleBuyNow}
+              showStock
+              showAgeLine
+            />
           ))}
         </div>
       )}

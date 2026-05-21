@@ -211,7 +211,7 @@ const OrderFormAside = () => {
             color="info"
             size="small"
             startIcon={<FileDown size={16} />}
-            onClick={() => generateReceipt(record)}
+            onClick={() => generateReceipt(record).catch(() => {})}
           >
             Download Receipt (PDF)
           </Button>
@@ -272,7 +272,10 @@ const OrderItemsPreview = () => {
         <Paper key={`${item.product?._id || item.product || idx}-${idx}`} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
           <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1}>
             <Box>
-              <Typography fontWeight={600}>{item.name}</Typography>
+              <Typography fontWeight={600}>
+                {item.name}
+                {item.colorName ? ` — ${item.colorName}` : ""}
+              </Typography>
               <Typography variant="body2" color="text.secondary">
                 Qty {item.qty} x {currency.format(item.price || 0)}
               </Typography>

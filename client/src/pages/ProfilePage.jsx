@@ -1,7 +1,6 @@
 import { useState, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { Link } from "react-router-dom";
-import { User, Mail, Phone, ShieldCheck, Calendar, Camera, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { User, Mail, Phone, ShieldCheck, Calendar, Camera, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import api from "../api";
 import { setCredentials } from "../app/store";
 
@@ -251,14 +250,9 @@ const ProfilePage = () => {
             </div>
 
             {!isEditing && (
-              <>
-                <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setIsEditing(true)}>
-                  Edit Profile
-                </button>
-                <Link to="/returns" className="btn btn-secondary" style={{ width: '100%', marginTop: '1rem', textDecoration: 'none', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
-                  <RefreshCw size={18} /> My Return Requests
-                </Link>
-              </>
+              <button className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setIsEditing(true)}>
+                Edit Profile
+              </button>
             )}
           </div>
         </section>

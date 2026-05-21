@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import ReturnRequest from "../models/ReturnRequest.js";
+import { notifyReturnSubmitted } from "../utils/notifyUserEmail.js";
 const asTrimmed = (v) => String(v ?? "").trim();
 
 const serializeReturnRequest = (doc) => {
@@ -91,6 +92,7 @@ export const createReturnRequest = async (req, res) => {
   });
 
   await created.populate("order", "_id itemsPrice shippingPrice taxPrice totalPrice status paymentMethod isPaid createdAt");
+  notifyReturnSubmitted(created, order);
   return res.status(201).json(serializeReturnRequest(created));
 };
 
@@ -156,5 +158,6 @@ export const sendReturnMessage = async (req, res) => {
   }
 
   await row.save();
+
   return res.status(201).json(serializeReturnRequest(row));
 };

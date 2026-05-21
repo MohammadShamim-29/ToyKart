@@ -15,6 +15,12 @@ import {
   setOrderStatus
 } from "../utils/orderLifecycle.js";
 import { buildRefundTransId, processSSLCommerZRefund, resolveSslBankTranId } from "../utils/sslcommerzRefund.js";
+import {
+  notifyOrderCancelled,
+  notifyOrderRefunded,
+  notifyOrderStatusChange
+} from "../utils/notifyUserEmail.js";
+import { restoreVariantStock } from "../utils/productVariants.js";
 
 const normalizeText = (value) => String(value ?? "").trim();
 
@@ -55,7 +61,7 @@ const restoreOrderStock = async (order) => {
   if (!Array.isArray(order?.orderItems)) return;
   for (const item of order.orderItems) {
     if (!item?.product || !item?.qty) continue;
-    await Product.findByIdAndUpdate(item.product, { $inc: { countInStock: Number(item.qty) || 0 } });
+    await restoreVariantStock(item.product, item);
   }
 };
 
@@ -393,14 +399,16 @@ export const updateAdminOrderStatus = async (req, res) => {
     return res.status(400).json({ message: "A valid status is required" });
   }
 
+  const previousStatus = normalizeOrderStatus(order.status);
   const actor = actorFromUser(req.user, "admin");
   const now = new Date();
+  const statusNote = normalizeText(req.body?.note) || "Status updated by admin";
 
   try {
     setOrderStatus(order, {
       toStatus: status,
       actor,
-      note: normalizeText(req.body?.note) || "Status updated by admin",
+      note: statusNote,
       at: now
     });
   } catch (error) {
@@ -418,6 +426,15 @@ export const updateAdminOrderStatus = async (req, res) => {
   }
 
   await order.save();
+
+  if (status === "cancelled" && previousStatus !== "cancelled") {
+    notifyOrderCancelled(order, {
+      reason: order.cancelReason,
+      cancelledBy: "ToyKart support"
+    });
+  } else if (status !== previousStatus) {
+    notifyOrderStatusChange(order, status, statusNote);
+  }
 
   const populated = await Order.findById(order._id)
     .populate("user", "name email")
@@ -490,6 +507,8 @@ export const cancelAdminOrder = async (req, res) => {
   await restoreOrderStock(order);
 
   await order.save();
+
+  notifyOrderCancelled(order, { reason, cancelledBy: "ToyKart support" });
 
   const populated = await Order.findById(order._id)
     .populate("user", "name email")
@@ -575,6 +594,18 @@ export const refundAdminOrder = async (req, res) => {
     });
 
     await order.save();
+
+    const refundMethod =
+      order.paymentMethod === "SSLCommerz"
+        ? "SSLCommerz (original payment method)"
+        : "Manual refund (COD — bank/MFS as arranged)";
+
+    notifyOrderRefunded(order, {
+      amount,
+      note: reason || undefined,
+      transactionId: sslRefundRefId || undefined,
+      method: refundMethod
+    });
 
     const populated = await Order.findById(order._id)
         .populate("user", "name email")

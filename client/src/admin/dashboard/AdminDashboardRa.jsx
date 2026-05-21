@@ -9,6 +9,7 @@ import { DashboardHeader } from "./DashboardHeader";
 import { KPIGrid } from "./KPIGrid";
 import { SalesAnalytics } from "./SalesAnalytics";
 import { InventoryHealth } from "./InventoryHealth";
+import { StockLookup } from "./StockLookup";
 import { CustomerInsights } from "./CustomerInsights";
 import { dash } from "./theme";
 
@@ -125,6 +126,10 @@ export const AdminDashboardRa = () => {
       </motion.div>
 
       <motion.div {...sectionMotion} transition={{ delay: 0.1 }}>
+        <StockLookup />
+      </motion.div>
+
+      <motion.div {...sectionMotion} transition={{ delay: 0.12 }}>
         <InventoryHealth inventory={data.inventory} />
       </motion.div>
 

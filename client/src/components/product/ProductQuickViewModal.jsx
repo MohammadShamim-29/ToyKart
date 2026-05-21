@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import clsx from "clsx";
 import { formatBdt } from "../../utils/formatCurrency";
 import { addToCartAjax } from "../../app/addToCartAjax";
+import { cardDisplayImage, cardDisplayVariant, productDetailPath } from "../../utils/productVariants";
 
 const ProductQuickViewModal = ({ product, onClose }) => {
   const dispatch = useDispatch();
@@ -13,13 +14,22 @@ const ProductQuickViewModal = ({ product, onClose }) => {
   const addedTimer = useRef(null);
   if (!product) return null;
 
+  const displayVariant = cardDisplayVariant(product);
+  const cardImage = cardDisplayImage(product, displayVariant);
+  const detailUrl = productDetailPath(product._id, displayVariant);
   const inStock = (product.countInStock ?? 0) > 0;
 
   const addCart = async () => {
     if (!inStock || isAdding) return;
     setIsAdding(true);
     try {
-      await addToCartAjax({ dispatch, product, quantity: 1 });
+      await addToCartAjax({
+        dispatch,
+        product,
+        quantity: 1,
+        variant: displayVariant,
+        variantId: displayVariant?._id
+      });
       setIsAdded(true);
       if (addedTimer.current) window.clearTimeout(addedTimer.current);
       addedTimer.current = window.setTimeout(() => setIsAdded(false), 900);
@@ -38,12 +48,13 @@ const ProductQuickViewModal = ({ product, onClose }) => {
         </button>
         <div className="pd-modal-grid">
           <div className="pd-modal-media">
-            <img src={product.image} alt={product.name} decoding="async" />
+            <img src={cardImage} alt={product.name} decoding="async" />
           </div>
           <div className="pd-modal-body">
             <h2 id="pd-quick-view-title" className="pd-modal-title">
               {product.name}
             </h2>
+            {displayVariant ? <p className="pd-modal-color">Color: {displayVariant.colorName}</p> : null}
             <p className="pd-modal-price">{formatBdt(product.price)}</p>
             <p className="pd-modal-desc clamp clamp-3">{product.description}</p>
             <div className="pd-modal-actions">
@@ -55,7 +66,7 @@ const ProductQuickViewModal = ({ product, onClose }) => {
               >
                 {isAdding ? "Adding..." : isAdded ? "Added" : "Add to cart"}
               </button>
-              <Link className="btn btn-secondary" to={`/product/${product._id}`} onClick={onClose}>
+              <Link className="btn btn-secondary" to={detailUrl} onClick={onClose}>
                 View full details
               </Link>
               <button type="button" className="btn btn-ghost" onClick={onClose}>

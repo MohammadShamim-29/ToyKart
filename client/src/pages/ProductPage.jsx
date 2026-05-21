@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import api from "../api";
 import { categoryLabel } from "../utils/categoryLabel";
 import { formatBdt } from "../utils/formatCurrency";
+import {
+  getStockStatusLabel,
+  hasColorVariants,
+  resolveVariantFromParam,
+  stockStatusClass,
+  variantGalleryImages
+} from "../utils/productVariants";
 import ProductImageGallery from "../components/product/ProductImageGallery";
 import ProductPurchaseActions from "../components/product/ProductPurchaseActions";
 import ProductShareRow from "../components/product/ProductShareRow";
@@ -19,31 +26,65 @@ const shortDescription = (text, max = 200) => {
 
 const ProductPage = () => {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [product, setProduct] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [related, setRelated] = useState([]);
   const [error, setError] = useState("");
   const [sticky, setSticky] = useState(false);
+  const [displayRating, setDisplayRating] = useState(0);
+  const [displayReviewCount, setDisplayReviewCount] = useState(0);
   const summaryRef = useRef(null);
+
+  const needsColor = hasColorVariants(product);
+  const variants = product?.colorVariants ?? [];
 
   const galleryImages = useMemo(() => {
     if (!product) return [];
+    if (selectedVariant) return variantGalleryImages(selectedVariant, product);
     const primary = product.image;
     const extras = Array.isArray(product.gallery) ? product.gallery : [];
     const ordered = [primary, ...extras.filter((u) => u && u !== primary)];
     return [...new Set(ordered.filter(Boolean))];
-  }, [product]);
+  }, [product, selectedVariant]);
+
+  const variantStock = selectedVariant
+    ? Number(selectedVariant.stock) || 0
+    : Number(product?.countInStock) || 0;
+  const inStock = variantStock > 0;
+  const stockLabel = getStockStatusLabel(variantStock);
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const { data } = await api.get(`/products/${id}`);
-        setProduct(data);
+        const [{ data: productData }, { data: reviewData }] = await Promise.all([
+          api.get(`/products/${id}`),
+          api.get(`/products/${id}/reviews`)
+        ]);
+        setProduct(productData);
+        setDisplayRating(Number(reviewData.rating) || 0);
+        setDisplayReviewCount(Number(reviewData.numReviews) || 0);
       } catch (err) {
         setError(err.response?.data?.message || "Could not load product details.");
       }
     };
     fetchProduct();
   }, [id]);
+
+  useEffect(() => {
+    if (!product) return;
+    const variantParam = searchParams.get("variant") || searchParams.get("color");
+    setSelectedVariant(hasColorVariants(product) ? resolveVariantFromParam(product, variantParam) : null);
+  }, [product, searchParams]);
+
+  const handleVariantSelect = (variant) => {
+    setSelectedVariant(variant);
+    if (variant?._id) {
+      setSearchParams({ variant: String(variant._id) }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  };
 
   useEffect(() => {
     const fetchRelated = async () => {
@@ -88,6 +129,12 @@ const ProductPage = () => {
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
+  const handleRatingUpdated = useCallback(({ rating, numReviews }) => {
+    setDisplayRating(Number(rating) || 0);
+    setDisplayReviewCount(Number(numReviews) || 0);
+    setProduct((prev) => (prev ? { ...prev, rating, numReviews } : prev));
+  }, []);
+
   if (error) {
     return (
       <section className="stack-md container">
@@ -107,16 +154,26 @@ const ProductPage = () => {
     );
   }
 
-  const inStock = (product.countInStock || 0) > 0;
+  const reviewCountLabel =
+    displayReviewCount === 1 ? "1 review" : `${displayReviewCount} reviews`;
+
   const compareAt = Number(product.compareAtPrice);
   const showDiscount = Number.isFinite(compareAt) && compareAt > product.price;
   const pctOff = showDiscount ? Math.round(((compareAt - product.price) / compareAt) * 100) : 0;
   const categorySlug = product.category?.slug;
   const categoryLink = categorySlug ? `/?category=${encodeURIComponent(categorySlug)}` : "/";
+  const displaySku =
+    selectedVariant?.sku?.trim() || product.sku;
 
   return (
     <div className="pd-page">
-      <StickyAddToCartBar visible={sticky} product={product} inStock={inStock} />
+      <StickyAddToCartBar
+        visible={sticky}
+        product={product}
+        inStock={inStock}
+        selectedVariant={selectedVariant}
+        needsColor={needsColor}
+      />
 
       <div className="container pd-header">
         <nav className="pd-breadcrumb" aria-label="Breadcrumb">
@@ -130,7 +187,11 @@ const ProductPage = () => {
 
       <div className="container pd-grid">
         <div className="pd-media-card card">
-          <ProductImageGallery images={galleryImages} alt={product.name} />
+          <ProductImageGallery
+            key={selectedVariant?._id || "default"}
+            images={galleryImages}
+            alt={`${product.name}${selectedVariant ? ` — ${selectedVariant.colorName}` : ""}`}
+          />
         </div>
 
         <div ref={summaryRef} className="pd-summary card">
@@ -139,9 +200,9 @@ const ProductPage = () => {
             <h1 className="pd-title">{product.name}</h1>
 
             <div className="pd-rating-row">
-              <StarRatingReadOnly value={product.rating} size={17} />
-              <span className="pd-rating-num">{Number(product.rating || 0).toFixed(1)}</span>
-              <span className="pd-rating-count">({product.numReviews ?? 0} reviews)</span>
+              <StarRatingReadOnly value={displayRating} size={17} />
+              <span className="pd-rating-num">{displayRating.toFixed(1)}</span>
+              <span className="pd-rating-count">({reviewCountLabel})</span>
             </div>
 
             <div className="pd-price-block">
@@ -158,13 +219,23 @@ const ProductPage = () => {
 
             <p className="pd-short-desc">{shortDescription(product.description)}</p>
 
-            <p className={inStock ? "pd-stock pd-stock--ok" : "pd-stock pd-stock--bad"}>
+            <p className={`pd-stock ${stockStatusClass(variantStock)}`}>
               <span className="pd-stock-dot" aria-hidden="true" />
-              {inStock ? `In stock (${product.countInStock} available)` : "Out of stock"}
+              {stockLabel}
+              {selectedVariant ? (
+                <span className="pd-stock-color"> — {selectedVariant.colorName}</span>
+              ) : null}
             </p>
           </div>
 
-          <ProductPurchaseActions product={product} inStock={inStock} />
+          <ProductPurchaseActions
+            product={product}
+            inStock={inStock}
+            variants={variants}
+            selectedVariant={selectedVariant}
+            onVariantSelect={handleVariantSelect}
+            needsColor={needsColor}
+          />
 
           <ProductShareRow url={shareUrl} title={product.name} />
 
@@ -172,7 +243,7 @@ const ProductPage = () => {
             <dl className="pd-meta-dl">
               <div>
                 <dt>SKU</dt>
-                <dd>{product.sku}</dd>
+                <dd>{displaySku}</dd>
               </div>
               <div>
                 <dt>Categories</dt>
@@ -209,7 +280,7 @@ const ProductPage = () => {
       </div>
 
       <div className="container pd-tabs-section">
-        <ProductDetailTabs product={product} />
+        <ProductDetailTabs product={product} onRatingUpdated={handleRatingUpdated} />
       </div>
 
       <div className="container">

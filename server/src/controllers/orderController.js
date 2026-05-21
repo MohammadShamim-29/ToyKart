@@ -14,6 +14,15 @@ import {
   normalizeOrderStatus,
   setOrderStatus
 } from "../utils/orderLifecycle.js";
+import {
+  notifyOrderCancelled,
+  notifyOrderPlaced,
+  notifyPaymentCancelled,
+  notifyPaymentFailed,
+  notifyPaymentReceived,
+  resolveOrderFromSslCallback
+} from "../utils/notifyUserEmail.js";
+import { decrementVariantStock, resolveOrderLineVariant, restoreVariantStock } from "../utils/productVariants.js";
 
 const badRequest = (message) => {
   const err = new Error(message);
@@ -38,11 +47,11 @@ const isTransactionsUnsupported = (error) =>
   (error.message.includes("Transaction numbers are only allowed on a replica set member or mongos") ||
     error.message.toLowerCase().includes("replica set"));
 
-const restoreOrderStock = async (order) => {
+const restoreOrderStock = async (order, session) => {
   if (!Array.isArray(order?.orderItems) || order.orderItems.length === 0) return;
   for (const item of order.orderItems) {
     if (!item?.product || !item?.qty) continue;
-    await Product.findByIdAndUpdate(item.product, { $inc: { countInStock: Number(item.qty) || 0 } });
+    await restoreVariantStock(item.product, item, session);
   }
 };
 
@@ -130,26 +139,29 @@ const createOrderInternal = async ({
       throw badRequest(`Product unavailable: ${item.name || item.product}`);
     }
     const qty = Number(item.qty);
-    if (!Number.isInteger(qty) || qty < 1 || qty > product.countInStock) {
-      throw badRequest(`Insufficient stock for ${product.name}`);
+    const { variant, availableStock, colorName, variantId } = resolveOrderLineVariant(product, item);
+    if (!Number.isInteger(qty) || qty < 1 || qty > availableStock) {
+      throw badRequest(
+        variant
+          ? `Insufficient stock for ${product.name} (${colorName})`
+          : `Insufficient stock for ${product.name}`
+      );
     }
     if (Math.abs(Number(item.price) - Number(product.price)) > 0.01) {
       throw badRequest(`Price changed for ${product.name}. Refresh your cart.`);
     }
 
-    product.countInStock -= qty;
-    if (session) {
-      await product.save({ session });
-    } else {
-      await product.save();
-    }
+    await decrementVariantStock(product, variant, qty, session);
 
     resolvedItems.push({
       name: product.name,
       qty: item.qty,
-      image: item.image || product.image,
+      image: item.image || variant?.image || product.image,
       price: product.price,
-      product: product._id
+      product: product._id,
+      variantId: variantId || undefined,
+      colorName: colorName || "",
+      variantSku: variant?.sku || ""
     });
   }
 
@@ -317,6 +329,8 @@ export const createOrder = async (req, res) => {
       await created.save();
     }
 
+    notifyOrderPlaced(created, req.user._id);
+
     return res.status(201).json(serializeOrder(created));
   } catch (e) {
     if (e.statusCode === 400) {
@@ -425,6 +439,8 @@ const applyValidatedPaymentToOrder = async (payload) => {
   order.paymentReference = bankTranId || sslTranId;
   await order.save();
 
+  notifyPaymentReceived(order);
+
   return order;
 };
 
@@ -438,11 +454,15 @@ export const sslCommerzSuccess = async (req, res) => {
 };
 
 export const sslCommerzFail = async (req, res) => {
+  const order = await resolveOrderFromSslCallback(req.body);
+  if (order && !order.isPaid) notifyPaymentFailed(order);
   const clientBaseUrl = resolveClientBaseUrl();
   return res.redirect(`${clientBaseUrl}/checkout?payment=failed`);
 };
 
 export const sslCommerzCancel = async (req, res) => {
+  const order = await resolveOrderFromSslCallback(req.body);
+  if (order && !order.isPaid) notifyPaymentCancelled(order);
   const clientBaseUrl = resolveClientBaseUrl();
   return res.redirect(`${clientBaseUrl}/checkout?payment=cancelled`);
 };
@@ -525,6 +545,8 @@ export const cancelMyOrder = async (req, res) => {
 
   await restoreOrderStock(order);
   await order.save();
+
+  notifyOrderCancelled(order, { reason, cancelledBy: "you" });
 
   return res.json(serializeOrder(order));
 };

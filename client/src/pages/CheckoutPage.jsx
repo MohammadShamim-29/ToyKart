@@ -159,6 +159,8 @@ const CheckoutPage = () => {
     try {
       const orderItems = items.map((line) => ({
         product: line.productId,
+        variantId: line.variantId || undefined,
+        colorName: line.colorName || undefined,
         name: line.name,
         qty: line.qty,
         image: line.image,
@@ -347,9 +349,10 @@ const CheckoutPage = () => {
           <h2>Summary</h2>
           <ul className="checkout-summary-lines">
             {items.map((line) => (
-              <li key={line.productId}>
+              <li key={`${line.productId}:${line.variantId || ""}`}>
                 <span>
-                  {line.name} × {line.qty}
+                  {line.name}
+                  {line.colorName ? ` (${line.colorName})` : ""} × {line.qty}
                 </span>
                 <span>{formatBdt(line.price * line.qty)}</span>
               </li>

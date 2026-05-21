@@ -1,7 +1,27 @@
-<svg width="220" height="52" viewBox="0 0 220 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="6" width="40" height="40" rx="12" fill="#2563EB"/>
-  <rect x="8" y="14" width="24" height="24" rx="8" fill="#F97316"/>
-  <path d="M16 22H24M20 18V26" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-  <text x="52" y="29" fill="#111827" font-family="Outfit, Arial, sans-serif" font-size="24" font-weight="700">ToyKart</text>
-  <text x="52" y="44" fill="#6B7280" font-family="Outfit, Arial, sans-serif" font-size="10" font-weight="600" letter-spacing="0.08em">PLAY. LEARN. GROW.</text>
+<svg width="220" height="52" viewBox="0 0 220 52" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ToyKart">
+  <defs>
+    <linearGradient id="markGrad" x1="4" y1="8" x2="40" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F7CFF"/>
+      <stop offset="0.55" stop-color="#7C5CFF"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop stop-color="#4F7CFF"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="6" width="40" height="40" rx="13" fill="url(#markGrad)"/>
+  <rect x="2" y="6" width="40" height="40" rx="13" fill="white" fill-opacity="0.12"/>
+  <ellipse cx="14" cy="14" rx="10" ry="7" fill="white" fill-opacity="0.18"/>
+  <rect x="12" y="24" width="20" height="11" rx="2.2" fill="white" fill-opacity="0.95"/>
+  <rect x="10" y="19.5" width="24" height="5.5" rx="1.8" fill="white"/>
+  <rect x="19" y="19.5" width="6" height="15.5" fill="#FBBF24" fill-opacity="0.95"/>
+  <ellipse cx="16.2" cy="18.5" rx="3.2" ry="2.2" fill="#FDE68A"/>
+  <ellipse cx="23.8" cy="18.5" rx="3.2" ry="2.2" fill="#FDE68A"/>
+  <circle cx="22" cy="18.8" r="1.4" fill="#F59E0B"/>
+  <path d="M36 11.5 37.2 14.8 40.5 16 37.2 17.2 36 20.5 34.8 17.2 31.5 16 34.8 14.8Z" fill="#FDE68A"/>
+  <text x="52" y="29" font-family="Outfit, system-ui, sans-serif" font-size="23" font-weight="600" letter-spacing="-0.03em" fill="#0F172A">
+    <tspan>Toy</tspan><tspan font-weight="700" fill="url(#textGrad)">Kart</tspan>
+  </text>
+  <text x="52" y="43" font-family="Outfit, system-ui, sans-serif" font-size="9.5" font-weight="500" letter-spacing="0.16em" fill="#64748B">PLAY · LEARN · GROW</text>
 </svg>

@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
 import Order from "../models/Order.js";
+import {
+  ensureSingleFeaturedVariant,
+  normalizeColorVariants,
+  syncProductImagesFromFeatured,
+  syncProductStockFromVariants
+} from "../utils/productVariants.js";
 
 function coerceCategoryId(category) {
   if (category == null || category === "") return undefined;
@@ -50,7 +56,22 @@ function normalizeProductBody(body, { isCreate } = { isCreate: false }) {
   assign("safetyCertifications", body.safetyCertifications);
   assign("tags", body.tags);
   assign("price", body.price !== undefined ? Number(body.price) : undefined);
+  if (body.compareAtPrice !== undefined) {
+    const raw = body.compareAtPrice;
+    if (raw === "" || raw === null) {
+      out.compareAtPrice = null;
+    } else {
+      const n = Number(raw);
+      if (Number.isNaN(n) || n < 0) {
+        return { error: "compareAtPrice must be a valid number ≥ 0" };
+      }
+      out.compareAtPrice = n;
+    }
+  }
   assign("currency", body.currency);
+  if (body.colorVariants !== undefined) {
+    out.colorVariants = ensureSingleFeaturedVariant(normalizeColorVariants(body.colorVariants));
+  }
   assign("countInStock", body.countInStock !== undefined ? Number(body.countInStock) : undefined);
   assign("soldCount", body.soldCount !== undefined ? Number(body.soldCount) : undefined);
   assign("isFeatured", body.isFeatured !== undefined ? Boolean(body.isFeatured) : undefined);
@@ -61,12 +82,28 @@ function normalizeProductBody(body, { isCreate } = { isCreate: false }) {
   assign("dimensionsCm", body.dimensionsCm);
   assign("weightGrams", body.weightGrams !== undefined ? Number(body.weightGrams) : undefined);
 
+  const hasVariants = Array.isArray(out.colorVariants) && out.colorVariants.length > 0;
+  if (hasVariants) {
+    const preview = { colorVariants: out.colorVariants, countInStock: out.countInStock ?? 0, image: out.image, gallery: out.gallery };
+    syncProductStockFromVariants(preview);
+    syncProductImagesFromFeatured(preview);
+    out.countInStock = preview.countInStock;
+    out.image = preview.image ?? out.image;
+    out.gallery = preview.gallery ?? out.gallery;
+  }
+
   if (isCreate) {
-    const required = ["name", "slug", "sku", "description", "category", "price", "countInStock"];
+    const required = ["name", "slug", "sku", "description", "category", "price"];
     for (const key of required) {
       if (out[key] === undefined || out[key] === "" || Number.isNaN(out[key])) {
         return { error: `${key} is required` };
       }
+    }
+    if (!hasVariants && (out.countInStock === undefined || Number.isNaN(out.countInStock))) {
+      return { error: "countInStock is required (or add color variants with stock)" };
+    }
+    if (hasVariants && out.countInStock === undefined) {
+      out.countInStock = 0;
     }
   }
 

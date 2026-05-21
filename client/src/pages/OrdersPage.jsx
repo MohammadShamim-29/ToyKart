@@ -376,7 +376,7 @@ const OrdersPage = () => {
                       className="btn btn-secondary"
                       style={{ borderRadius: '12px', padding: '0.62rem' }}
                       title="Download Receipt"
-                      onClick={() => generateReceipt(order)}
+                      onClick={() => generateReceipt(order).catch(() => {})}
                     >
                       <FileDown size={20} />
                     </button>
@@ -693,14 +693,22 @@ const OrdersPage = () => {
                 )}
               </label>
 
-              <div className="policy-link-row" style={{ marginBottom: '1rem' }}>
+              <div className="policy-link-row" style={{ marginBottom: "1rem", display: "flex", flexWrap: "wrap", gap: "0.75rem 1.25rem" }}>
+                <Link
+                  to="/return-policy#return-refund-policy"
+                  className="subtext-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View full return &amp; refund policy (English &amp; Bangla)
+                </Link>
                 <button
                   type="button"
                   className="subtext-link"
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.9rem' }}
+                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: "0.9rem" }}
                   onClick={() => setShowPolicyModal(true)}
                 >
-                  View Return & Refund Policy
+                  Quick view
                 </button>
               </div>
 
@@ -711,7 +719,7 @@ const OrdersPage = () => {
                   onChange={(e) => setPolicyAccepted(e.target.checked)}
                   required
                 />
-                I have read and agree to the return policy.
+                I have read and agree to the return &amp; refund policy (English / Bangla).
               </label>
 
               <div className="return-modal-actions">
@@ -756,13 +764,13 @@ const OrdersPage = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  বাতিল নীতিমালা দেখুন (সম্পূর্ণ)
+                  View full cancellation policy (English &amp; Bangla)
                 </Link>
               </div>
 
-              <div className="return-policy-box cancellation-policy-box">
-                <h4 className="cancellation-policy-title">বাতিল নীতিমালা</h4>
-                <CancellationPolicyContent />
+              <div className="return-policy-box cancellation-policy-box cancellation-policy-box--modal">
+                <h4 className="cancellation-policy-title">Cancellation policy</h4>
+                <CancellationPolicyContent locales={["en", "bn"]} />
               </div>
 
               <label className="return-policy-accept">
@@ -772,7 +780,7 @@ const OrdersPage = () => {
                   onChange={(e) => setCancelPolicyAccepted(e.target.checked)}
                   required
                 />
-                আমি বাতিল নীতিমালা পড়েছি এবং সম্মত।
+                I have read and agree to the cancellation policy (English / Bangla above).
               </label>
 
               <div className="return-modal-actions">
@@ -797,8 +805,8 @@ const OrdersPage = () => {
                 x
               </button>
             </div>
-            <div className="return-policy-box return-policy-box--modal">
-              <ReturnPolicyContent />
+            <div className="return-policy-box return-policy-box--modal cancellation-policy-box--modal">
+              <ReturnPolicyContent locales={["en", "bn"]} />
               <div className="return-modal-actions" style={{ marginTop: "1.25rem" }}>
                 <button type="button" className="btn btn-primary" onClick={() => setShowPolicyModal(false)}>
                   Close
