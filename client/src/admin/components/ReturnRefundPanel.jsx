@@ -1,5 +1,7 @@
-import { Alert, Chip, Paper, Stack, TextField, Typography } from "@mui/material";
-import { useRecordContext, useRefresh } from "react-admin";
+import { Alert, Button, Chip, Paper, Stack, TextField, Typography } from "@mui/material";
+import { useRecordContext, useNotify, useRefresh } from "react-admin";
+import { useState } from "react";
+import api from "../../api";
 import ProcessRefundButton from "./ProcessRefundButton";
 import RefundStatusChip from "./RefundStatusChip";
 
@@ -24,10 +26,17 @@ const isSslReturnRefundEligible = (record) => {
 const ReturnRefundPanel = () => {
   const record = useRecordContext();
   const refresh = useRefresh();
+  const notify = useNotify();
+  const [completing, setCompleting] = useState(false);
 
   if (!record) return null;
 
   const order = record.order;
+  const isCod = order?.paymentMethod === "CashOnDelivery";
+  const canCompleteCod =
+    record.status === "REFUND_APPROVED" &&
+    isCod &&
+    record.refundDetails?.finalRefundAmount != null;
   const bankTxn = order?.bankTranId || order?.paymentReference;
   const finalAmount = Number(record.refundDetails?.finalRefundAmount ?? order?.totalPrice ?? 0);
   const isRefunded =
@@ -130,6 +139,40 @@ const ReturnRefundPanel = () => {
       {record.status === "REFUND_APPROVED" && !sslEligible && (
         <Chip label="Manual refund required" size="small" color="warning" variant="outlined" sx={{ mt: 1 }} />
       )}
+
+      {canCompleteCod ? (
+        <Stack spacing={1} sx={{ mt: 2 }}>
+          <Alert severity="success" variant="outlined" sx={{ borderRadius: 2 }}>
+            After you send the refund (bank / bKash / Nagad), mark this return completed. No SSLCommerz step is
+            required for COD orders.
+          </Alert>
+          <Button
+            variant="contained"
+            color="success"
+            disabled={completing}
+            onClick={async () => {
+              const txn = window.prompt("Payment reference / txn ID (optional):", "");
+              if (txn === null) return;
+              setCompleting(true);
+              try {
+                await api.put(`admin/returns/${record.id}`, {
+                  status: "COMPLETED",
+                  note: "COD refund sent — return completed",
+                  ...(txn.trim() ? { transactionId: txn.trim() } : {})
+                });
+                notify("Return completed", { type: "success" });
+                refresh();
+              } catch (err) {
+                notify(err.response?.data?.message || "Could not complete return", { type: "error" });
+              } finally {
+                setCompleting(false);
+              }
+            }}
+          >
+            {completing ? "Completing…" : "Mark Completed (COD refund sent)"}
+          </Button>
+        </Stack>
+      ) : null}
     </Paper>
   );
 };

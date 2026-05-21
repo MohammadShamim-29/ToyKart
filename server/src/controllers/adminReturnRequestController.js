@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 import ReturnRequest from "../models/ReturnRequest.js";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
+import {
+  canTransitionReturnStatus,
+  getAllowedReturnTransitions,
+  isCodOrder
+} from "../utils/returnRequestLifecycle.js";
 const asTrimmed = (v) => String(v ?? "").trim();
 
 const mapRecord = (doc) => {
@@ -43,25 +48,6 @@ export const getAdminReturnRequest = async (req, res) => {
   return res.json(mapRecord(row));
 };
 
-const VALID_TRANSITIONS = {
-  "PENDING": ["UNDER_REVIEW", "NEED_MORE_INFO", "REJECTED"],
-  "UNDER_REVIEW": ["NEED_MORE_INFO", "APPROVED_FOR_PICKUP", "REJECTED"],
-  "NEED_MORE_INFO": ["CUSTOMER_RESPONDED", "UNDER_REVIEW"],
-  "CUSTOMER_RESPONDED": ["UNDER_REVIEW", "NEED_MORE_INFO", "APPROVED_FOR_PICKUP"],
-  "APPROVED_FOR_PICKUP": ["PICKUP_SCHEDULED"],
-  "PICKUP_SCHEDULED": ["PICKED_UP"],
-  "PICKED_UP": ["INSPECTION_COMPLETED"],
-  "INSPECTION_COMPLETED": ["REFUND_APPROVED", "REFUND_REJECTED", "REPLACEMENT_APPROVED"],
-  "REFUND_APPROVED": ["REFUND_PROCESSED"],
-  "REFUND_PROCESSED": ["COMPLETED"],
-  "REPLACEMENT_APPROVED": ["REPLACEMENT_SHIPPED"],
-  "REPLACEMENT_SHIPPED": ["REPLACEMENT_DELIVERED"],
-  "REPLACEMENT_DELIVERED": ["COMPLETED"],
-  "REFUND_REJECTED": ["ITEM_RETURNED_TO_CUSTOMER"],
-  "ITEM_RETURNED_TO_CUSTOMER": ["CLOSED"],
-  "REJECTED": ["CLOSED"]
-};
-
 export const updateAdminReturnRequest = async (req, res) => {
   const id = asTrimmed(req.params.id);
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -75,9 +61,9 @@ export const updateAdminReturnRequest = async (req, res) => {
   const previousStatus = row.status;
 
   if (status && status !== row.status) {
-    // Validate transition
-    const allowed = VALID_TRANSITIONS[row.status] || [];
-    if (!allowed.includes(status)) {
+    const order = await Order.findById(row.order).select("paymentMethod status refundStatus");
+    if (!canTransitionReturnStatus(row.status, status, order)) {
+      const allowed = getAllowedReturnTransitions(row.status, order);
       return res.status(400).json({
         message: `Cannot transition from ${row.status} to ${status}. Allowed transitions: ${allowed.join(", ") || "none"}`
       });
@@ -105,16 +91,34 @@ export const updateAdminReturnRequest = async (req, res) => {
     }
 
     if (status === "COMPLETED") {
-      // Auto-update the original order to 'returned' if not already
       const order = await Order.findById(row.order);
-      if (order && order.status !== "returned") {
-        order.status = "returned";
+      const now = new Date();
+      const finalAmount = Number(row.refundDetails?.finalRefundAmount || 0);
+
+      if (previousStatus === "REFUND_APPROVED" && !row.refundDetails?.processedAt) {
+        row.refundDetails = {
+          ...(row.refundDetails?.toObject?.() || row.refundDetails || {}),
+          processedAt: now
+        };
+        if (asTrimmed(req.body?.transactionId)) {
+          row.refundDetails.transactionId = asTrimmed(req.body.transactionId);
+        }
+      }
+
+      if (order) {
+        if (order.status !== "returned") {
+          order.status = "returned";
+        }
         order.refund = {
-          amount: row.refundDetails?.finalRefundAmount || 0,
+          amount: finalAmount,
           reason: row.reason,
-          refundedAt: new Date(),
+          refundedAt: now,
           refundedBy: { user: req.user._id, role: "admin", name: req.user.name }
         };
+        if (isCodOrder(order)) {
+          order.refundStatus = "success";
+          order.refundedAt = now;
+        }
         await order.save();
       }
     }

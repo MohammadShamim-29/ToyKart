@@ -101,6 +101,9 @@ const ReturnFormAside = () => {
   if (!record) return null;
 
   const s = record.status;
+  const isCod = record.order?.paymentMethod === "CashOnDelivery";
+  const canCompleteCod =
+    s === "REFUND_APPROVED" && isCod && record.refundDetails?.finalRefundAmount != null;
 
   return (
     <Stack spacing={2}>
@@ -164,12 +167,26 @@ const ReturnFormAside = () => {
               Mark Picked Up
             </Button>
           )}
-          {s === "REFUND_PROCESSED" && (
+          {(s === "REFUND_PROCESSED" || canCompleteCod) && (
             <Button variant="outlined" color="success" size="small" fullWidth disabled={busy}
-              onClick={() => runAction(async () => {
-                await api.put(`admin/returns/${record.id}`, { status: "COMPLETED", note: "Request completed" });
-              }, "Request completed")}>
-              Mark Completed
+              onClick={() => {
+                let transactionId;
+                if (canCompleteCod) {
+                  const txn = window.prompt("Payment reference / txn ID (optional):", "");
+                  if (txn === null) return;
+                  transactionId = txn.trim() || undefined;
+                }
+                runAction(async () => {
+                  await api.put(`admin/returns/${record.id}`, {
+                    status: "COMPLETED",
+                    note: canCompleteCod
+                      ? "COD refund sent — return completed"
+                      : "Request completed",
+                    ...(transactionId ? { transactionId } : {})
+                  });
+                }, "Request completed");
+              }}>
+              {canCompleteCod ? "Mark Completed (COD refund sent)" : "Mark Completed"}
             </Button>
           )}
           {s === "ITEM_RETURNED_TO_CUSTOMER" && (

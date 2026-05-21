@@ -1,8 +1,30 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Globe, Mail, MessageCircle, Phone, SendHorizontal } from "lucide-react";
+import { useSelector } from "react-redux";
+import { Globe, Mail, MessageCircle, SendHorizontal } from "lucide-react";
+import api from "../api";
 import Logo from "./Logo";
 
 const Footer = () => {
+  const { userInfo } = useSelector((state) => state.auth);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const { data } = await api.get("/categories");
+        const rows = Array.isArray(data) ? data : [];
+        setCategories(rows.filter((c) => c.isActive !== false).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
+      } catch {
+        setCategories([]);
+      }
+    };
+    load();
+  }, []);
+
+  const accountHref = userInfo ? "/profile" : "/login?redirect=%2Fprofile";
+  const ordersHref = userInfo ? "/orders" : "/login?redirect=%2Forders";
+
   return (
     <footer className="site-footer">
       <div className="container footer-inner">
@@ -30,18 +52,17 @@ const Footer = () => {
         <div>
           <h3>Collections</h3>
           <ul>
-            <li>
-              <Link to="/shop">Signature Learning</Link>
-            </li>
-            <li>
-              <Link to="/shop">STEM Atelier</Link>
-            </li>
-            <li>
-              <Link to="/shop">Creative Studio</Link>
-            </li>
-            <li>
-              <Link to="/shop">Outdoor Editions</Link>
-            </li>
+            {categories.length === 0 ? (
+              <li>
+                <Link to="/shop">Shop all</Link>
+              </li>
+            ) : (
+              categories.map((cat) => (
+                <li key={cat._id || cat.slug}>
+                  <Link to={`/shop?category=${encodeURIComponent(cat.slug || cat._id)}`}>{cat.name}</Link>
+                </li>
+              ))
+            )}
           </ul>
         </div>
 
@@ -49,26 +70,20 @@ const Footer = () => {
           <h3>Client Care</h3>
           <ul>
             <li>
-              <Link to="/orders">Track Orders</Link>
+              <Link to={ordersHref}>Track Orders</Link>
             </li>
             <li>
-              <Link to="/login">My Account</Link>
+              <Link to={accountHref}>My Account</Link>
             </li>
             <li>
-              <a href="#">Delivery Policy</a>
-            </li>
-            <li>
-              <a href="#">Returns & Exchange</a>
+              <Link to="/return-policy#return-refund-policy">Return Refund Policy</Link>
             </li>
           </ul>
         </div>
 
         <div>
-          <h3>Concierge</h3>
+          <h3>Contact</h3>
           <ul className="contact-list">
-            <li>
-              <Phone size={15} /> +880 1700-123456
-            </li>
             <li>
               <Mail size={15} /> hello@toykart.com
             </li>

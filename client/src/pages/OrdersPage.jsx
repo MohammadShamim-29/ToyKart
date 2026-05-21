@@ -5,6 +5,8 @@ import { Trash2, FileDown, Upload } from "lucide-react";
 import api from "../api";
 import { generateReceipt } from "../utils/generateReceipt";
 import { getOrderStatusLabel, getOrderStatusUi } from "../utils/orderStatusLabel";
+import ReturnPolicyContent from "../components/ReturnPolicyContent";
+import CancellationPolicyContent from "../components/CancellationPolicyContent";
 
 const currency = new Intl.NumberFormat("en-BD", {
   style: "currency",
@@ -729,7 +731,7 @@ const OrdersPage = () => {
         <div className="return-modal-backdrop" role="presentation" onClick={closeCancelModal}>
           <div className="return-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="return-modal-head">
-              <h3>অর্ডার বাতিলের অনুরোধ</h3>
+              <h3>Cancel order</h3>
               <button type="button" className="return-modal-close" onClick={closeCancelModal} disabled={Boolean(cancellingId)}>
                 x
               </button>
@@ -737,30 +739,19 @@ const OrdersPage = () => {
 
             <form className="return-modal-form" onSubmit={submitCancelModal}>
               <label>
-                বাতিল করার কারণ
+                Reason for cancellation
                 <textarea
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="যেমন: ভুল করে অর্ডার করেছি / এখন আর প্রয়োজন নেই"
+                  placeholder="e.g. ordered by mistake / no longer needed"
                   minLength={5}
                   required
                 />
               </label>
 
-              <div className="policy-box" style={{
-                background: 'var(--surface-soft)',
-                padding: '1rem',
-                borderRadius: '12px',
-                fontSize: '0.85rem',
-                margin: '1rem 0',
-                border: '1px solid var(--line)'
-              }}>
-                <h4 style={{ marginBottom: '0.5rem', color: 'var(--ink)' }}>বাতিল নীতিমালা:</h4>
-                <ul style={{ paddingLeft: '1.2rem', margin: 0, listStyleType: 'disc' }}>
-                  <li>অনলাইন পেমেন্ট করা অর্ডার বাতিল হলে সম্পূর্ণ (ফুল) রিফান্ড দেয়া হবে।</li>
-                  <li>রিফান্ড ২-৩ কার্যদিবসের মধ্যে সম্পন্ন হবে।</li>
-                  <li>টাকা যে মাধ্যমে পেমেন্ট করা হয়েছে, সেই একই মাধ্যমেই ফেরত যাবে।</li>
-                </ul>
+              <div className="return-policy-box cancellation-policy-box">
+                <h4 className="cancellation-policy-title">Cancellation policy</h4>
+                <CancellationPolicyContent />
               </div>
 
               <label className="return-policy-accept">
@@ -770,15 +761,15 @@ const OrdersPage = () => {
                   onChange={(e) => setCancelPolicyAccepted(e.target.checked)}
                   required
                 />
-                আমি বাতিল নীতিমালা বুঝেছি এবং সম্মত।
+                I have read and agree to the cancellation policy.
               </label>
 
               <div className="return-modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={closeCancelModal} disabled={Boolean(cancellingId)}>
-                  বন্ধ করুন
+                  Close
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={Boolean(cancellingId)}>
-                  {cancellingId ? "বাতিল হচ্ছে..." : "অর্ডারটি বাতিল করুন"}
+                  {cancellingId ? "Cancelling…" : "Cancel order"}
                 </button>
               </div>
             </form>
@@ -790,44 +781,16 @@ const OrdersPage = () => {
         <div className="return-modal-backdrop" role="presentation" onClick={() => setShowPolicyModal(false)} style={{ zIndex: 1100 }}>
           <div className="return-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div className="return-modal-head">
-              <h3>রিটার্ন নীতিমালা (বাংলাদেশ)</h3>
+              <h3>Return &amp; Refund Policy</h3>
               <button type="button" className="return-modal-close" onClick={() => setShowPolicyModal(false)}>
                 x
               </button>
             </div>
-            <div className="return-policy-box" style={{ padding: '1rem', border: 'none', background: 'transparent' }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <ul style={{ paddingLeft: '1.2rem', margin: '0' }}>
-                  <li style={{ marginBottom: '0.6rem' }}>ডেলিভারির পর সর্বোচ্চ ৭ দিনের মধ্যে রিটার্ন/রিফান্ড রিকোয়েস্ট করতে হবে।</li>
-                  <li style={{ marginBottom: '0.6rem' }}>পণ্য অবশ্যই অরিজিনাল প্যাকেজিং, ট্যাগ এবং আনইউজড অবস্থায় থাকতে হবে।</li>
-                  <li style={{ marginBottom: '0.6rem' }}>পণ্য আনবক্সিংয়ের সময় অবশ্যই ভিডিও ধারণ করে রাখতে হবে। রিটার্ন, রিফান্ড অথবা ক্ষতিগ্রস্ত/ভুল পণ্যের দাবির ক্ষেত্রে যথাযথ প্রমাণ যাচাই ও অনুসন্ধানের জন্য আনবক্সিং ভিডিও গুরুত্বপূর্ণ প্রমাণ হিসেবে বিবেচিত হবে। প্রয়োজনে দ্রুত সমাধান ও সঠিক সিদ্ধান্ত গ্রহণের জন্য গ্রাহককে আনবক্সিং ভিডিও প্রদান করতে হতে পারে।</li>
-                  <li style={{ marginBottom: '0.6rem' }}>পর্যালোচনার পরে রিকোয়েস্ট অনুমোদন বা বাতিল করা হবে; প্রয়োজন হলে অতিরিক্ত তথ্য চাওয়া হতে পারে।</li>
-                  <li style={{ marginBottom: '0.6rem' }}>COD অর্ডারের রিফান্ড ব্যাংক/মোবাইল ফাইন্যান্সিয়াল সার্ভিসে দেয়া হতে পারে।</li>
-                </ul>
-
-                <div style={{
-                  background: "#fff7ed",
-                  border: "1px solid #fed7aa",
-                  borderRadius: "10px",
-                  padding: "1rem 1.1rem",
-                  fontSize: "0.88rem",
-                  lineHeight: 1.7
-                }}>
-                  <p style={{ margin: "0 0 0.75rem", fontWeight: 600, color: "#c2410c" }}>লজিস্টিক ও রিফান্ড সংক্রান্ত নীতিমালা:</p>
-                  <p style={{ margin: "0 0 0.75rem", color: "#431407" }}>
-                    রিটার্ন/রিফান্ড রিকোয়েস্ট অনুমোদিত হলে পণ্য সংগ্রহ (পিকআপ) করার জন্য গ্রাহককে ডেলিভারি চার্জের সমপরিমাণ একটি পিকআপ চার্জ প্রদান করতে হবে।
-                  </p>
-                  <p style={{ margin: "0 0 0.75rem", color: "#065f46" }}>
-                    তবে যদি পর্যালোচনায় দেখা যায় যে পণ্যটি আমাদের পক্ষ থেকে ভুল, ত্রুটিপূর্ণ বা ক্ষতিগ্রস্ত অবস্থায় সরবরাহ করা হয়েছে, তাহলে গ্রাহককে কোনো অতিরিক্ত চার্জ প্রদান করতে হবে না। সে ক্ষেত্রে আমাদের প্রতিষ্ঠান নিজস্ব খরচে পণ্যটি প্রতিস্থাপন (Replacement) করে দেবে অথবা প্রযোজ্য ক্ষেত্রে সম্পূর্ণ অর্থ ফেরত প্রদান করবে। পুনরায় পণ্য পাঠানোর জন্যও গ্রাহকের কাছ থেকে কোনো ডেলিভারি চার্জ গ্রহণ করা হবে না।
-                  </p>
-                  <p style={{ margin: "0", color: "#431407" }}>
-                    অন্যদিকে, যদি তদন্তে প্রমাণিত হয় যে সমস্যাটি আমাদের পক্ষ থেকে হয়নি এবং পণ্যটি রিটার্ন নীতির শর্ত পূরণ না করে, তাহলে রিফান্ড অনুমোদিত হবে না। সে ক্ষেত্রে পণ্যটি পুনরায় গ্রাহকের কাছে ফেরত পাঠানো হবে এবং কোনো অর্থ ফেরত প্রদান করা হবে না।
-                  </p>
-                </div>
-              </div>
-              <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+            <div className="return-policy-box return-policy-box--modal">
+              <ReturnPolicyContent />
+              <div className="return-modal-actions" style={{ marginTop: "1.25rem" }}>
                 <button type="button" className="btn btn-primary" onClick={() => setShowPolicyModal(false)}>
-                  ঠিক আছে
+                  Close
                 </button>
               </div>
             </div>

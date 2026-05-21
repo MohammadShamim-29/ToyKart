@@ -145,3 +145,11 @@ export const deriveDisplayStatus = (order) => {
 };
 
 export const humanOrderNumber = (id) => String(id || "").slice(-8).toUpperCase();
+
+/** Orders ready to pack/ship: confirmed or processing, paid online or COD (not yet shipped+). */
+export const AWAITING_SHIPMENT_STATUSES = ["confirmed", "processing"];
+
+export const awaitingShipmentFilter = () => ({
+  status: { $in: AWAITING_SHIPMENT_STATUSES },
+  $or: [{ isPaid: true }, { paymentMethod: "CashOnDelivery" }]
+});
