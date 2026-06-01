@@ -5,7 +5,7 @@ const shippingDistrictSchema = new mongoose.Schema(
     country: { type: mongoose.Schema.Types.ObjectId, ref: "ShippingCountry", required: true, index: true },
     name: { type: String, required: true, trim: true },
     isEnabled: { type: Boolean, default: true },
-    sortOrder: { type: Number, default: 0 }
+    sortOrder: { type: Number, default: 0, min: 0 }
   },
   { timestamps: true }
 );

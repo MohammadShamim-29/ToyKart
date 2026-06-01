@@ -75,12 +75,24 @@ export const createAdminShippingDistrict = async (req, res) => {
     return res.status(400).json({ message: countryCheck.error });
   }
 
+  let normalizedSortOrder = 0;
+  if (sortOrder !== undefined) {
+    const n = Number(sortOrder);
+    if (!Number.isFinite(n)) {
+      return res.status(400).json({ message: "sortOrder must be a valid number ≥ 0" });
+    }
+    if (n < 0) {
+      return res.status(400).json({ message: "sortOrder cannot be negative" });
+    }
+    normalizedSortOrder = n;
+  }
+
   try {
     const district = await ShippingDistrict.create({
       name: String(name).trim(),
       country: countryCheck.country._id,
       isEnabled: isEnabled !== false,
-      sortOrder: Number(sortOrder) || 0
+      sortOrder: normalizedSortOrder
     });
     await district.populate("country", "name isoCode isEnabled");
     return res.status(201).json(district);
@@ -117,7 +129,14 @@ export const updateAdminShippingDistrict = async (req, res) => {
     district.isEnabled = Boolean(isEnabled);
   }
   if (sortOrder !== undefined) {
-    district.sortOrder = Number(sortOrder) || 0;
+    const n = Number(sortOrder);
+    if (!Number.isFinite(n)) {
+      return res.status(400).json({ message: "sortOrder must be a valid number ≥ 0" });
+    }
+    if (n < 0) {
+      return res.status(400).json({ message: "sortOrder cannot be negative" });
+    }
+    district.sortOrder = n;
   }
 
   try {

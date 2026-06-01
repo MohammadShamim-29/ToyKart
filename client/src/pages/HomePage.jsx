@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ShieldCheck, Sparkles, Star, Truck } from "lucide-react";
+import { ArrowRight, Filter, ShieldCheck, Sparkles, Star, Truck, X } from "lucide-react";
 import api from "../api";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCartAjax, buyNowAjax } from "../app/addToCartAjax";
@@ -59,12 +59,29 @@ const lifestyleGallery = [
 
 const HomePage = () => {
   const [products, setProducts] = useState([]);
+  const [catalogTotal, setCatalogTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeSlide, setActiveSlide] = useState(0);
   const [addingId, setAddingId] = useState("");
   const [addedId, setAddedId] = useState("");
   const [buyingId, setBuyingId] = useState("");
+  const [categories, setCategories] = useState([]);
+
+  const defaultFilters = useMemo(
+    () => ({
+      ageGroup: "",
+      category: "",
+      minPrice: "",
+      maxPrice: "",
+      sort: "featured",
+      newArrival: false
+    }),
+    []
+  );
+
+  const [filters, setFilters] = useState(defaultFilters);
+  const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
   const { userInfo } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -72,18 +89,45 @@ const HomePage = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const { data } = await api.get("/products");
+        setLoading(true);
+        setError("");
+
+        const params = {
+          limit: 48,
+          sort: appliedFilters.sort || "featured"
+        };
+        if (appliedFilters.ageGroup) params.ageGroup = appliedFilters.ageGroup;
+        if (appliedFilters.category) params.category = appliedFilters.category;
+        if (appliedFilters.minPrice !== "") params.minPrice = appliedFilters.minPrice;
+        if (appliedFilters.maxPrice !== "") params.maxPrice = appliedFilters.maxPrice;
+        if (appliedFilters.newArrival) params.newArrival = 1;
+
+        const { data } = await api.get("/products", { params });
         const list = Array.isArray(data) ? data : data?.items;
-        setProducts(Array.isArray(list) ? list : []);
+        const items = Array.isArray(list) ? list : [];
+        setProducts(items);
+        setCatalogTotal(Number.isFinite(Number(data?.total)) ? Number(data.total) : items.length);
       } catch (err) {
         setError(err.response?.data?.message || "Could not load products right now.");
         setProducts([]);
+        setCatalogTotal(0);
       } finally {
         setLoading(false);
       }
     };
 
     fetchProducts();
+  }, [appliedFilters]);
+
+  useEffect(() => {
+    api
+      .get("/categories")
+      .then(({ data }) => {
+        setCategories(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setCategories([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -99,6 +143,16 @@ const HomePage = () => {
     const pick = featured.length > 0 ? featured : products;
     return pick.slice(0, 6);
   }, [products]);
+
+  const handleApplyFilters = (e) => {
+    e.preventDefault();
+    setAppliedFilters(filters);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(defaultFilters);
+    setAppliedFilters(defaultFilters);
+  };
 
   const handleAddToCart = async (product, variant) => {
     setAddingId(product._id);
@@ -235,8 +289,92 @@ const HomePage = () => {
       <section className="stack-md catalog-opal" id="catalog">
         <div className="section-head">
           <h2>Signature Collection</h2>
-          {!loading && !error && <p className="subtext">{products.length} products in catalog</p>}
+          {!loading && !error && <p className="subtext">{catalogTotal} products in catalog</p>}
         </div>
+
+        <form className="catalog-filters" onSubmit={handleApplyFilters}>
+          <label className="catalog-filter">
+            Age
+            <select
+              value={filters.ageGroup}
+              onChange={(e) => setFilters((prev) => ({ ...prev, ageGroup: e.target.value }))}
+            >
+              <option value="">All</option>
+              <option value="0-2">0-2</option>
+              <option value="3-5">3-5</option>
+              <option value="6-8">6-8</option>
+              <option value="9-12">9-12</option>
+              <option value="13+">13+</option>
+            </select>
+          </label>
+
+          <label className="catalog-filter">
+            Category
+            <select
+              value={filters.category}
+              onChange={(e) => setFilters((prev) => ({ ...prev, category: e.target.value }))}
+              disabled={categories.length === 0}
+            >
+              <option value="">All</option>
+              {categories.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="catalog-filter">
+            Min price
+            <input
+              inputMode="numeric"
+              value={filters.minPrice}
+              onChange={(e) => setFilters((prev) => ({ ...prev, minPrice: e.target.value }))}
+              placeholder="0"
+            />
+          </label>
+
+          <label className="catalog-filter">
+            Max price
+            <input
+              inputMode="numeric"
+              value={filters.maxPrice}
+              onChange={(e) => setFilters((prev) => ({ ...prev, maxPrice: e.target.value }))}
+              placeholder="5000"
+            />
+          </label>
+
+          <label className="catalog-filter catalog-filter--check">
+            <input
+              type="checkbox"
+              checked={filters.newArrival}
+              onChange={(e) => setFilters((prev) => ({ ...prev, newArrival: e.target.checked }))}
+            />
+            New arrivals
+          </label>
+
+          <label className="catalog-filter">
+            Sort
+            <select value={filters.sort} onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))}>
+              <option value="featured">Featured</option>
+              <option value="newest">Newest</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="rating-desc">Top Rated</option>
+              <option value="name-asc">Name: A-Z</option>
+              <option value="name-desc">Name: Z-A</option>
+            </select>
+          </label>
+
+          <div className="catalog-filter-actions">
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              <Filter size={16} /> Apply
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={handleResetFilters} disabled={loading}>
+              <X size={16} /> Reset
+            </button>
+          </div>
+        </form>
 
         {loading && <p className="notice">Loading products...</p>}
         {error && <p className="error">{error}</p>}

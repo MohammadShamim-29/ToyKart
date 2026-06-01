@@ -137,7 +137,7 @@ export const notifyPaymentFailed = async (order) =>
       paymentFailedEmail({
         name: recipient.name,
         orderNumber: humanOrderNumber(order._id),
-        reason: "Payment did not complete. You can try again from your orders page."
+        reason: "Payment did not complete. Please try again from checkout."
       })
     );
   });

@@ -36,6 +36,7 @@ const CheckoutThankYouPage = () => {
   const dispatch = useDispatch();
   const orderFromState = location.state?.order;
   const paymentStatus = searchParams.get("payment");
+  const orderIdFromQuery = searchParams.get("orderId");
   const [order, setOrder] = useState(orderFromState ?? null);
   const [downloading, setDownloading] = useState(false);
 
@@ -53,7 +54,7 @@ const CheckoutThankYouPage = () => {
   }, [dispatch, paymentStatus]);
 
   useEffect(() => {
-    const id = orderFromState?._id || order?._id;
+    const id = orderIdFromQuery || orderFromState?._id || order?._id;
     if (!id) {
       const cached = sessionStorage.getItem(STORAGE_KEY);
       if (cached) {
@@ -73,7 +74,7 @@ const CheckoutThankYouPage = () => {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       })
       .catch(() => {});
-  }, [orderFromState?._id, order?._id]);
+  }, [orderFromState?._id, order?._id, orderIdFromQuery]);
 
   const isOnlinePaid = paymentStatus === "success" || order?.isPaid;
   const isCod = order?.paymentMethod === "CashOnDelivery";

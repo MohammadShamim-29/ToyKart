@@ -68,7 +68,10 @@ const CartPage = () => {
                           setLineQty({
                             productId: line.productId,
                             variantId: line.variantId,
-                            qty: Number(e.target.value) || 1
+                            qty:
+                              max != null
+                                ? Math.min(max, Math.max(1, Number(e.target.value) || 1))
+                                : Math.max(1, Number(e.target.value) || 1)
                           })
                         )
                       }

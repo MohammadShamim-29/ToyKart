@@ -13,7 +13,7 @@ const categorySchema = new mongoose.Schema(
     },
     description: { type: String, trim: true, default: "" },
     isActive: { type: Boolean, default: true, index: true },
-    sortOrder: { type: Number, default: 0 }
+    sortOrder: { type: Number, default: 0, min: 0 }
   },
   { timestamps: true }
 );

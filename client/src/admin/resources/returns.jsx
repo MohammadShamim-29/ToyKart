@@ -425,7 +425,8 @@ const PickupForm = () => {
         onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })}
         InputLabelProps={{ shrink: true }} />
       <MuiTextField size="small" label="Pickup Charge (BDT)" type="number" fullWidth value={form.pickupCharge}
-        onChange={(e) => setForm({ ...form, pickupCharge: Math.max(0, Number(e.target.value)) })} />
+        onChange={(e) => setForm({ ...form, pickupCharge: Math.max(0, Number(e.target.value) || 0) })}
+        inputProps={{ min: 0 }} />
       <Button variant="contained" onClick={handleSchedule} disabled={busy}>
         {busy ? "Scheduling..." : "Schedule Pickup"}
       </Button>
@@ -549,14 +550,16 @@ const RefundApproveForm = () => {
       <Typography variant="body2" color="text.secondary">Approve refund after successful inspection.</Typography>
       <MuiTextField size="small" label="Approved Amount (BDT)" type="number" fullWidth value={form.approvedAmount}
         onChange={(e) => {
-          const v = e.target.value;
+          const v = Math.max(0, Number(e.target.value) || 0);
           setForm({ ...form, approvedAmount: v, finalRefundAmount: updateFinal(v, form.deductions) });
-        }} />
+        }}
+        inputProps={{ min: 0 }} />
       <MuiTextField size="small" label="Deductions (BDT)" type="number" fullWidth value={form.deductions}
         onChange={(e) => {
-          const v = e.target.value;
+          const v = Math.max(0, Number(e.target.value) || 0);
           setForm({ ...form, deductions: v, finalRefundAmount: updateFinal(form.approvedAmount, v) });
-        }} />
+        }}
+        inputProps={{ min: 0 }} />
       <MuiTextField size="small" label="Final Refund Amount" type="number" fullWidth
         value={updateFinal(form.approvedAmount, form.deductions)} InputProps={{ readOnly: true }}
         sx={{ "& .MuiInputBase-input.Mui-readOnly": { background: "#f9fafb" } }} />
@@ -644,7 +647,8 @@ const ReturnToCustomerForm = () => {
       <MuiTextField size="small" label="Tracking Number" fullWidth value={form.trackingNumber}
         onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })} />
       <MuiTextField size="small" label="Shipping Charge (BDT)" type="number" fullWidth value={form.shippingCharge}
-        onChange={(e) => setForm({ ...form, shippingCharge: Number(e.target.value) })} />
+        onChange={(e) => setForm({ ...form, shippingCharge: Math.max(0, Number(e.target.value) || 0) })}
+        inputProps={{ min: 0 }} />
       <MuiTextField size="small" label="Reason" fullWidth value={form.reason}
         onChange={(e) => setForm({ ...form, reason: e.target.value })} />
       <Button variant="contained" onClick={handleReturn} disabled={busy}>

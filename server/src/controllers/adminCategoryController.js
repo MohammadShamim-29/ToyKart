@@ -45,12 +45,24 @@ export const createAdminCategory = async (req, res) => {
     return res.status(400).json({ message: "Slug already in use" });
   }
 
+  let normalizedSortOrder = 0;
+  if (sortOrder !== undefined) {
+    const n = Number(sortOrder);
+    if (!Number.isFinite(n)) {
+      return res.status(400).json({ message: "sortOrder must be a valid number ≥ 0" });
+    }
+    if (n < 0) {
+      return res.status(400).json({ message: "sortOrder cannot be negative" });
+    }
+    normalizedSortOrder = n;
+  }
+
   const category = await Category.create({
     name: name.trim(),
     slug: finalSlug,
     description: description?.trim() ?? "",
     isActive: isActive !== false,
-    sortOrder: Number(sortOrder) || 0
+    sortOrder: normalizedSortOrder
   });
 
   return res.status(201).json(category);
@@ -70,7 +82,16 @@ export const updateAdminCategory = async (req, res) => {
   if (slug !== undefined) category.slug = slugify(slug);
   if (description !== undefined) category.description = String(description).trim();
   if (isActive !== undefined) category.isActive = Boolean(isActive);
-  if (sortOrder !== undefined) category.sortOrder = Number(sortOrder);
+  if (sortOrder !== undefined) {
+    const n = Number(sortOrder);
+    if (!Number.isFinite(n)) {
+      return res.status(400).json({ message: "sortOrder must be a valid number ≥ 0" });
+    }
+    if (n < 0) {
+      return res.status(400).json({ message: "sortOrder cannot be negative" });
+    }
+    category.sortOrder = n;
+  }
 
   if (slug !== undefined) {
     const dup = await Category.findOne({

@@ -250,7 +250,7 @@ const ColorVariantsInput = (props) => {
                     type="number"
                     inputProps={{ min: 0 }}
                     value={variant.stock ?? 0}
-                    onChange={(e) => updateAt(index, { stock: Number(e.target.value) || 0 })}
+                    onChange={(e) => updateAt(index, { stock: Math.max(0, Number(e.target.value) || 0) })}
                     fullWidth
                     required
                   />

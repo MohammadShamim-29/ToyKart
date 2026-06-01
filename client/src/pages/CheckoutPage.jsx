@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import api from "../api";
 import { clearCart, selectCartItems } from "../app/cartSlice";
@@ -26,6 +26,7 @@ const CheckoutPage = () => {
   const { userInfo } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [shipping, setShipping] = useState(defaultShipping);
   const [locations, setLocations] = useState([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
@@ -35,6 +36,15 @@ const CheckoutPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CashOnDelivery");
   const storageKey = useMemo(() => `checkoutShipping:${userInfo?._id || "guest"}`, [userInfo?._id]);
+
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    if (payment === "failed") {
+      setError("Payment failed. Please try again or choose Cash on Delivery.");
+    } else if (payment === "cancelled") {
+      setError("Payment cancelled. You can try again or choose Cash on Delivery.");
+    }
+  }, [searchParams]);
 
   const { itemsPrice, shippingPrice, taxPrice, totalPrice } = useMemo(() => {
     const sub = items.reduce((sum, line) => sum + line.price * line.qty, 0);

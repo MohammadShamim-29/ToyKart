@@ -32,7 +32,7 @@ const pickupDetailsSchema = new mongoose.Schema(
     scheduledDate: { type: Date },
     courierName: { type: String, trim: true },
     trackingNumber: { type: String, trim: true },
-    pickupCharge: { type: Number, default: 0 },
+    pickupCharge: { type: Number, default: 0, min: 0 },
     pickedUpAt: { type: Date }
   },
   { _id: false }
@@ -52,13 +52,13 @@ const inspectionDetailsSchema = new mongoose.Schema(
 
 const refundDetailsSchema = new mongoose.Schema(
   {
-    approvedAmount: { type: Number, default: 0 },
-    deductions: { type: Number, default: 0 },
-    finalRefundAmount: { type: Number, default: 0 },
+    approvedAmount: { type: Number, default: 0, min: 0 },
+    deductions: { type: Number, default: 0, min: 0 },
+    finalRefundAmount: { type: Number, default: 0, min: 0 },
     refundMethod: { type: String, trim: true },
     transactionId: { type: String, trim: true },
     processedAt: { type: Date },
-    estimatedCompletionDays: { type: Number, default: 7 }
+    estimatedCompletionDays: { type: Number, default: 7, min: 0 }
   },
   { _id: false }
 );
@@ -66,7 +66,7 @@ const refundDetailsSchema = new mongoose.Schema(
 const returnToCustomerDetailsSchema = new mongoose.Schema(
   {
     trackingNumber: { type: String, trim: true },
-    shippingCharge: { type: Number, default: 0 },
+    shippingCharge: { type: Number, default: 0, min: 0 },
     returnedAt: { type: Date },
     reason: { type: String, trim: true }
   },
@@ -80,8 +80,8 @@ const returnRequestSchema = new mongoose.Schema(
     orderItem: {
       product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
       name: { type: String },
-      qty: { type: Number },
-      price: { type: Number }
+      qty: { type: Number, min: 1 },
+      price: { type: Number, min: 0 }
     },
     requestType: {
       type: String,

@@ -22,6 +22,15 @@ function coerceCategoryId(category) {
 function normalizeProductBody(body, { isCreate } = { isCreate: false }) {
   const out = {};
 
+  const nonNegativeNumber = (key, raw) => {
+    if (raw === undefined) return { ok: true, value: undefined };
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) {
+      return { ok: false, error: `${key} must be a valid number ≥ 0` };
+    }
+    return { ok: true, value: n };
+  };
+
   const assign = (key, value) => {
     if (value !== undefined) out[key] = value;
   };
@@ -55,7 +64,11 @@ function normalizeProductBody(body, { isCreate } = { isCreate: false }) {
   assign("material", body.material);
   assign("safetyCertifications", body.safetyCertifications);
   assign("tags", body.tags);
-  assign("price", body.price !== undefined ? Number(body.price) : undefined);
+  if (body.price !== undefined) {
+    const parsed = nonNegativeNumber("price", body.price);
+    if (!parsed.ok) return { error: parsed.error };
+    assign("price", parsed.value);
+  }
   if (body.compareAtPrice !== undefined) {
     const raw = body.compareAtPrice;
     if (raw === "" || raw === null) {
@@ -72,15 +85,37 @@ function normalizeProductBody(body, { isCreate } = { isCreate: false }) {
   if (body.colorVariants !== undefined) {
     out.colorVariants = ensureSingleFeaturedVariant(normalizeColorVariants(body.colorVariants));
   }
-  assign("countInStock", body.countInStock !== undefined ? Number(body.countInStock) : undefined);
-  assign("soldCount", body.soldCount !== undefined ? Number(body.soldCount) : undefined);
+  if (body.countInStock !== undefined) {
+    const parsed = nonNegativeNumber("countInStock", body.countInStock);
+    if (!parsed.ok) return { error: parsed.error };
+    assign("countInStock", parsed.value);
+  }
+  if (body.soldCount !== undefined) {
+    const parsed = nonNegativeNumber("soldCount", body.soldCount);
+    if (!parsed.ok) return { error: parsed.error };
+    assign("soldCount", parsed.value);
+  }
   assign("isFeatured", body.isFeatured !== undefined ? Boolean(body.isFeatured) : undefined);
   assign("newArrival", body.newArrival !== undefined ? Boolean(body.newArrival) : undefined);
   assign("status", body.status);
-  assign("rating", body.rating !== undefined ? Number(body.rating) : undefined);
-  assign("numReviews", body.numReviews !== undefined ? Number(body.numReviews) : undefined);
+  if (body.rating !== undefined) {
+    const n = Number(body.rating);
+    if (!Number.isFinite(n) || n < 0 || n > 5) {
+      return { error: "rating must be a valid number between 0 and 5" };
+    }
+    assign("rating", n);
+  }
+  if (body.numReviews !== undefined) {
+    const parsed = nonNegativeNumber("numReviews", body.numReviews);
+    if (!parsed.ok) return { error: parsed.error };
+    assign("numReviews", parsed.value);
+  }
   assign("dimensionsCm", body.dimensionsCm);
-  assign("weightGrams", body.weightGrams !== undefined ? Number(body.weightGrams) : undefined);
+  if (body.weightGrams !== undefined) {
+    const parsed = nonNegativeNumber("weightGrams", body.weightGrams);
+    if (!parsed.ok) return { error: parsed.error };
+    assign("weightGrams", parsed.value);
+  }
 
   const hasVariants = Array.isArray(out.colorVariants) && out.colorVariants.length > 0;
   if (hasVariants) {

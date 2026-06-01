@@ -47,6 +47,22 @@ const isTransactionsUnsupported = (error) =>
   (error.message.includes("Transaction numbers are only allowed on a replica set member or mongos") ||
     error.message.toLowerCase().includes("replica set"));
 
+const runWithTransactionFallback = async (fn) => {
+  const session = await mongoose.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await fn(session);
+    });
+    return result;
+  } catch (error) {
+    if (!isTransactionsUnsupported(error)) throw error;
+    return fn(null);
+  } finally {
+    session.endSession();
+  }
+};
+
 const restoreOrderStock = async (order, session) => {
   if (!Array.isArray(order?.orderItems) || order.orderItems.length === 0) return;
   for (const item of order.orderItems) {
@@ -264,6 +280,32 @@ const createOrderWithTransactionFallback = async ({
   }
 };
 
+const cleanupFailedSslOrder = async (payload) => {
+  const orderId = normalizeOrderIdParam(payload?.value_a);
+  const tranId = normalizeText(payload?.tran_id);
+
+  // Prefer deleting by _id when provided, otherwise fall back to transaction ID.
+  const filter = {
+    paymentMethod: SSL_PAYMENT_METHOD,
+    isPaid: false,
+    ...(orderId ? { _id: orderId } : tranId ? { paymentReference: tranId } : {})
+  };
+
+  if (!filter._id && !filter.paymentReference) return null;
+
+  return runWithTransactionFallback(async (session) => {
+    const query = Order.findOneAndDelete(filter);
+    const deleted = await (session ? query.session(session) : query);
+    if (!deleted) return null;
+
+    // The order is intentionally removed so it never appears in customer history.
+    // Restore stock so items are available for re-checkout.
+    await restoreOrderStock(deleted, session);
+
+    return deleted;
+  });
+};
+
 const normalizeOrderIdParam = (raw) => {
   if (raw == null || String(raw).trim() === "" || String(raw) === "[object Object]") return null;
   const id = String(raw).trim();
@@ -324,12 +366,16 @@ export const createOrder = async (req, res) => {
       totalPrice
     });
 
-    if (paymentMethod === SSL_PAYMENT_METHOD) {
+    const isSsl = paymentMethod === SSL_PAYMENT_METHOD;
+    if (isSsl) {
       created.paymentMethod = SSL_PAYMENT_METHOD;
       await created.save();
     }
 
-    notifyOrderPlaced(created, req.user._id);
+    // For SSLCommerz, the order is only considered “placed” after a successful payment.
+    if (!isSsl) {
+      notifyOrderPlaced(created, req.user._id);
+    }
 
     return res.status(201).json(serializeOrder(created));
   } catch (e) {
@@ -393,17 +439,27 @@ export const initSslCommerzPayment = async (req, res) => {
     value_d: ""
   });
 
-  const response = await fetch(`${getSslBaseUrl()}/gwprocess/v4/api.php`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: payload.toString()
-  });
-  if (!response.ok) {
+  let result;
+  try {
+    const response = await fetch(`${getSslBaseUrl()}/gwprocess/v4/api.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: payload.toString()
+    });
+    if (!response.ok) {
+      await cleanupFailedSslOrder({ value_a: String(order._id), tran_id: tranId });
+      return res.status(502).json({ message: "Could not initiate payment session." });
+    }
+
+    result = await response.json();
+  } catch (error) {
+    console.error("SSLCommerz init failed:", error);
+    await cleanupFailedSslOrder({ value_a: String(order._id), tran_id: tranId });
     return res.status(502).json({ message: "Could not initiate payment session." });
   }
 
-  const result = await response.json();
   if (!result?.GatewayPageURL) {
+    await cleanupFailedSslOrder({ value_a: String(order._id), tran_id: tranId });
     return res.status(400).json({ message: result?.failedreason || "Payment gateway did not return a checkout URL." });
   }
 
@@ -448,14 +504,17 @@ export const sslCommerzSuccess = async (req, res) => {
   const result = await applyValidatedPaymentToOrder(req.body);
   const clientBaseUrl = resolveClientBaseUrl();
   if (!result) {
+    // If validation fails, treat it like a failed payment and ensure no unpaid SSL order remains.
+    await cleanupFailedSslOrder(req.body);
     return res.redirect(`${clientBaseUrl}/checkout?payment=failed`);
   }
-  return res.redirect(`${clientBaseUrl}/checkout/thank-you?payment=success`);
+  return res.redirect(`${clientBaseUrl}/checkout/thank-you?payment=success&orderId=${result._id}`);
 };
 
 export const sslCommerzFail = async (req, res) => {
   const order = await resolveOrderFromSslCallback(req.body);
   if (order && !order.isPaid) notifyPaymentFailed(order);
+  await cleanupFailedSslOrder(order ? { value_a: String(order._id), tran_id: req.body?.tran_id } : req.body);
   const clientBaseUrl = resolveClientBaseUrl();
   return res.redirect(`${clientBaseUrl}/checkout?payment=failed`);
 };
@@ -463,6 +522,7 @@ export const sslCommerzFail = async (req, res) => {
 export const sslCommerzCancel = async (req, res) => {
   const order = await resolveOrderFromSslCallback(req.body);
   if (order && !order.isPaid) notifyPaymentCancelled(order);
+  await cleanupFailedSslOrder(order ? { value_a: String(order._id), tran_id: req.body?.tran_id } : req.body);
   const clientBaseUrl = resolveClientBaseUrl();
   return res.redirect(`${clientBaseUrl}/checkout?payment=cancelled`);
 };

@@ -15,6 +15,16 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
+  if (err instanceof mongoose.Error.ValidationError) {
+    const first = Object.values(err.errors || {})[0];
+    return res.status(400).json({
+      message: first?.message || err.message || "Validation failed",
+      errors: Object.fromEntries(
+        Object.entries(err.errors || {}).map(([key, value]) => [key, value?.message || "Invalid value"])
+      )
+    });
+  }
+
   const statusCode =
     err.statusCode || (res.statusCode && res.statusCode !== 200 ? res.statusCode : 500);
 

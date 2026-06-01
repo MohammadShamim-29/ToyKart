@@ -153,6 +153,11 @@ export const schedulePickup = async (req, res) => {
   const id = asTrimmed(req.params.id);
   const { scheduledDate, courierName, trackingNumber, pickupCharge } = req.body;
 
+  const pickupChargeNum = Number(pickupCharge || 0);
+  if (!Number.isFinite(pickupChargeNum) || pickupChargeNum < 0) {
+    return res.status(400).json({ message: "pickupCharge must be a valid number ≥ 0" });
+  }
+
   const row = await ReturnRequest.findById(id);
   if (!row) return res.status(404).json({ message: "Return request not found" });
 
@@ -160,7 +165,7 @@ export const schedulePickup = async (req, res) => {
     scheduledDate: scheduledDate ? new Date(scheduledDate) : new Date(),
     courierName,
     trackingNumber,
-    pickupCharge: Number(pickupCharge || 0)
+    pickupCharge: pickupChargeNum
   };
   row.status = "PICKUP_SCHEDULED";
   row.timeline.push({
@@ -247,14 +252,27 @@ export const approveRefund = async (req, res) => {
   const id = asTrimmed(req.params.id);
   const { approvedAmount, deductions, finalRefundAmount, refundMethod } = req.body;
 
+  const approvedAmountNum = Number(approvedAmount || 0);
+  const deductionsNum = Number(deductions || 0);
+  const finalRefundAmountNum = Number(finalRefundAmount || 0);
+  if (!Number.isFinite(approvedAmountNum) || approvedAmountNum < 0) {
+    return res.status(400).json({ message: "approvedAmount must be a valid number ≥ 0" });
+  }
+  if (!Number.isFinite(deductionsNum) || deductionsNum < 0) {
+    return res.status(400).json({ message: "deductions must be a valid number ≥ 0" });
+  }
+  if (!Number.isFinite(finalRefundAmountNum) || finalRefundAmountNum < 0) {
+    return res.status(400).json({ message: "finalRefundAmount must be a valid number ≥ 0" });
+  }
+
   const row = await ReturnRequest.findById(id);
   if (!row) return res.status(404).json({ message: "Return request not found" });
 
   const prevStatus = row.status;
   row.refundDetails = {
-    approvedAmount: Number(approvedAmount || 0),
-    deductions: Number(deductions || 0),
-    finalRefundAmount: Number(finalRefundAmount || 0),
+    approvedAmount: approvedAmountNum,
+    deductions: deductionsNum,
+    finalRefundAmount: finalRefundAmountNum,
     refundMethod: refundMethod || row.refundMethod
   };
   row.status = "REFUND_APPROVED";
@@ -347,13 +365,18 @@ export const returnItemToCustomer = async (req, res) => {
   const id = asTrimmed(req.params.id);
   const { trackingNumber, shippingCharge, reason } = req.body;
 
+  const shippingChargeNum = Number(shippingCharge || 0);
+  if (!Number.isFinite(shippingChargeNum) || shippingChargeNum < 0) {
+    return res.status(400).json({ message: "shippingCharge must be a valid number ≥ 0" });
+  }
+
   const row = await ReturnRequest.findById(id);
   if (!row) return res.status(404).json({ message: "Return request not found" });
 
   const prevStatus = row.status;
   row.returnToCustomerDetails = {
     trackingNumber,
-    shippingCharge: Number(shippingCharge || 0),
+    shippingCharge: shippingChargeNum,
     reason,
     returnedAt: new Date()
   };
