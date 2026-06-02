@@ -82,6 +82,7 @@ const HomePage = () => {
 
   const [filters, setFilters] = useState(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
+  const [filterError, setFilterError] = useState("");
   const { userInfo } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -146,12 +147,39 @@ const HomePage = () => {
 
   const handleApplyFilters = (e) => {
     e.preventDefault();
+    setFilterError("");
+
+    const min = filters.minPrice === "" ? "" : Number(filters.minPrice);
+    const max = filters.maxPrice === "" ? "" : Number(filters.maxPrice);
+
+    if (min !== "" && min < 0) {
+      setFilterError("Minimum price cannot be negative.");
+      return;
+    }
+    if (max !== "" && max < 0) {
+      setFilterError("Maximum price cannot be negative.");
+      return;
+    }
+    if (min !== "" && min > 5000) {
+      setFilterError("Minimum price cannot exceed 5000.");
+      return;
+    }
+    if (max !== "" && max > 5000) {
+      setFilterError("Maximum price cannot exceed 5000.");
+      return;
+    }
+    if (min !== "" && max !== "" && min > max) {
+      setFilterError("Minimum price cannot be greater than maximum price.");
+      return;
+    }
+
     setAppliedFilters(filters);
   };
 
   const handleResetFilters = () => {
     setFilters(defaultFilters);
     setAppliedFilters(defaultFilters);
+    setFilterError("");
   };
 
   const handleAddToCart = async (product, variant) => {
@@ -375,6 +403,8 @@ const HomePage = () => {
             </button>
           </div>
         </form>
+
+        {filterError && <p className="error">{filterError}</p>}
 
         {loading && <p className="notice">Loading products...</p>}
         {error && <p className="error">{error}</p>}
