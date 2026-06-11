@@ -7,7 +7,7 @@ import {
   generateSecureToken,
   hashToken
 } from "../utils/generateToken.js";
-import { sendEmail } from "../utils/sendEmail.js";
+import { getEmailMode, sendEmail } from "../utils/sendEmail.js";
 import { resetOtpEmail, verificationEmail } from "../utils/emailTemplates.js";
 
 const REFRESH_COOKIE = "toykart_refresh";
@@ -87,6 +87,8 @@ const sendVerificationEmail = async (user) => {
     text: `${tpl.text}\n\nAPI link: ${apiLink}`,
     html: `${tpl.html}<p style="font-size:12px;color:#999;margin-top:16px">Direct API: <a href="${apiLink}">${apiLink}</a></p>`
   });
+
+  return { link, apiLink };
 };
 
 const findUserByResetOtp = async (email, otp) => {
@@ -160,17 +162,23 @@ export const registerUser = async (req, res) => {
     isVerified: false
   });
 
+  let verificationLink;
   try {
-    await sendVerificationEmail(user);
+    const result = await sendVerificationEmail(user);
+    verificationLink = result?.link;
   } catch (err) {
     console.error("[ToyKart] verification email failed", err.message);
   }
 
-  return res.status(201).json({
+  const payload = {
     message: "Account created. We sent a verification link to your email (optional).",
     email: user.email,
     isVerified: false
-  });
+  };
+  if (getEmailMode() === "dev" && verificationLink) {
+    payload.verificationLink = verificationLink;
+  }
+  return res.status(201).json(payload);
 };
 
 export const loginUser = async (req, res) => {
@@ -404,8 +412,19 @@ export const resendVerification = async (req, res) => {
     return res.status(400).json({ message: "Email is already verified" });
   }
 
-  await sendVerificationEmail(user);
-  return res.json({ message: "Verification email sent." });
+  let verificationLink;
+  try {
+    const result = await sendVerificationEmail(user);
+    verificationLink = result?.link;
+  } catch (err) {
+    console.error("[ToyKart] resend verification email failed", err.message);
+  }
+
+  const payload = { message: "Verification email sent." };
+  if (getEmailMode() === "dev" && verificationLink) {
+    payload.verificationLink = verificationLink;
+  }
+  return res.json(payload);
 };
 
 export const getMe = async (req, res) => {

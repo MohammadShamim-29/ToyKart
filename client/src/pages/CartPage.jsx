@@ -103,7 +103,7 @@ const CartPage = () => {
             </div>
           </dl>
           <div className="shipping-info" style={{ margin: '1rem 0', padding: '0.75rem', background: 'var(--surface-soft)', borderRadius: '8px', fontSize: '0.85rem' }}>
-            <strong>Shipping:</strong> BDT 60 within Dhaka City, BDT 100 for destinations outside Dhaka.
+            <strong>Shipping:</strong> BDT 100 for all destinations.
           </div>
           <Link className="btn btn-primary cart-checkout-cta" to="/checkout">
             Proceed to checkout

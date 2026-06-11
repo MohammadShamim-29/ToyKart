@@ -104,6 +104,68 @@ export function exportDashboardPdf(data) {
     });
   }
 
+  const reports = data.reports;
+  if (reports) {
+    const monthly = reports.monthlySales || [];
+    if (monthly.length > 0) {
+      y = ensureSpace(doc, doc.lastAutoTable?.finalY + 10 || y + 10, 60, margin);
+      y = addSection(doc, "Monthly sales (12 months)", y, margin);
+      y = table(doc, {
+        startY: y + 4,
+        head: [["Month", "Revenue", "Orders"]],
+        body: monthly.map((r) => [r.month, formatBdt(r.revenue), String(r.orders)]),
+        margin: { left: margin, right: margin }
+      });
+    }
+
+    const weeklyCat = reports.weeklyCategorySales || [];
+    if (weeklyCat.length > 0) {
+      y = ensureSpace(doc, doc.lastAutoTable?.finalY + 10 || y + 10, 60, margin);
+      y = addSection(doc, "Weekly sales by category (8 weeks)", y, margin);
+      const weeks = [...new Set(weeklyCat.map((r) => r.week))].sort();
+      const categories = [...new Set(weeklyCat.map((r) => r.category))];
+      const body = weeks.map((week) => {
+        const row = [week];
+        categories.forEach((cat) => {
+          const item = weeklyCat.find((r) => r.week === week && r.category === cat);
+          row.push(item ? formatBdt(item.revenue) : "—");
+        });
+        return row;
+      });
+      y = table(doc, {
+        startY: y + 4,
+        head: ["Week", ...categories],
+        body,
+        margin: { left: margin, right: margin }
+      });
+    }
+
+    const weeklyProd = reports.weeklyProductSales || [];
+    if (weeklyProd.length > 0) {
+      y = ensureSpace(doc, doc.lastAutoTable?.finalY + 10 || y + 10, 60, margin);
+      y = addSection(doc, "Weekly sales by product - top 15 (8 weeks)", y, margin);
+      const weeks = [...new Set(weeklyProd.map((r) => r.week))].sort();
+      const products = [...new Set(weeklyProd.map((r) => r.product))].slice(0, 15);
+      const body = products.map((product) => {
+        const prodRows = weeklyProd.filter((r) => r.product === product);
+        const total = prodRows.reduce((s, r) => s + r.revenue, 0);
+        const row = [product];
+        weeks.forEach((week) => {
+          const item = prodRows.find((r) => r.week === week);
+          row.push(item ? formatBdt(item.revenue) : "—");
+        });
+        row.push(formatBdt(total));
+        return row;
+      });
+      table(doc, {
+        startY: y + 4,
+        head: ["Product", ...weeks, "Total"],
+        body,
+        margin: { left: margin, right: margin }
+      });
+    }
+  }
+
   const customers = data.customers;
   if (customers) {
     y = ensureSpace(doc, doc.lastAutoTable?.finalY + 10 || y + 10, 40, margin);

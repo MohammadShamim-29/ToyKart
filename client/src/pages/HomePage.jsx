@@ -153,11 +153,11 @@ const HomePage = () => {
     const max = filters.maxPrice === "" ? "" : Number(filters.maxPrice);
 
     if (min !== "" && min < 0) {
-      setFilterError("Minimum price cannot be negative.");
+      setFilterError("Minimum price cannot be less than 0.");
       return;
     }
     if (max !== "" && max < 0) {
-      setFilterError("Maximum price cannot be negative.");
+      setFilterError("Maximum price cannot be less than 0.");
       return;
     }
     if (min !== "" && min > 5000) {

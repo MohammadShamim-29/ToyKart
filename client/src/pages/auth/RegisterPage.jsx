@@ -9,6 +9,7 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [verificationLink, setVerificationLink] = useState("");
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -43,7 +44,11 @@ const RegisterPage = () => {
         password: form.password
       });
       toast.success(data.message || "Account created! You can sign in now.");
-      navigate("/login");
+      if (data.verificationLink) {
+        setVerificationLink(data.verificationLink);
+      } else {
+        navigate("/login");
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Registration failed");
     } finally {
@@ -60,6 +65,22 @@ const RegisterPage = () => {
           One quick form — we will send an optional verification link to your email.
         </p>
 
+        {verificationLink ? (
+          <div className="card" style={{ marginTop: "1.25rem", padding: "1rem", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "8px" }}>
+            <p style={{ fontWeight: 600, marginBottom: "0.5rem" }}>Verify your email (dev mode)</p>
+            <p style={{ fontSize: "0.875rem", marginBottom: "0.5rem" }}>
+              No SMTP configured — use this link to verify:
+            </p>
+            <a href={verificationLink} style={{ wordBreak: "break-all", fontSize: "0.875rem", color: "#15803d" }}>
+              {verificationLink}
+            </a>
+            <p style={{ marginTop: "0.75rem" }}>
+              <Link to="/login" className="btn btn-primary" style={{ display: "inline-flex" }}>
+                Sign in
+              </Link>
+            </p>
+          </div>
+        ) : (
         <form onSubmit={onSubmit} className="form" style={{ marginTop: "1.25rem" }}>
           <label>
             Full name
@@ -109,10 +130,13 @@ const RegisterPage = () => {
             {loading ? "Creating…" : "Create account"}
           </button>
         </form>
+        )}
 
+        {!verificationLink && (
         <p className="subtext" style={{ marginTop: "1rem", textAlign: "center" }}>
           Have an account? <Link to="/login">Sign in</Link>
         </p>
+        )}
       </section>
     </div>
   );

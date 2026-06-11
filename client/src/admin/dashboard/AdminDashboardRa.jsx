@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useNotify } from "react-admin";
 import { fetchDashboard } from "./dashboardApi";
 import { exportDashboardPdf } from "./exportDashboardPdf";
+import { exportSalesReportPdf } from "./exportSalesReportPdf";
 import { DashboardSkeleton } from "./DashboardSkeleton";
 import { DashboardHeader } from "./DashboardHeader";
 import { KPIGrid } from "./KPIGrid";
@@ -25,6 +26,7 @@ export const AdminDashboardRa = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [exportingSales, setExportingSales] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -57,6 +59,22 @@ export const AdminDashboardRa = () => {
       notify(err?.message || "Could not export PDF", { type: "error" });
     } finally {
       setExporting(false);
+    }
+  }, [data, notify]);
+
+  const handleExportSalesPdf = useCallback(() => {
+    if (!data?.reports) {
+      notify("Sales report data is not available yet.", { type: "warning" });
+      return;
+    }
+    setExportingSales(true);
+    try {
+      const filename = exportSalesReportPdf(data);
+      notify(`Downloaded ${filename}`, { type: "success" });
+    } catch (err) {
+      notify(err?.message || "Could not export sales report PDF", { type: "error" });
+    } finally {
+      setExportingSales(false);
     }
   }, [data, notify]);
 
@@ -106,8 +124,10 @@ export const AdminDashboardRa = () => {
         generatedAt={data.generatedAt}
         loading={loading}
         exporting={exporting}
+        exportingSales={exportingSales}
         onRefresh={load}
         onExportPdf={handleExportPdf}
+        onExportSalesPdf={handleExportSalesPdf}
       />
 
       {data._legacy && (

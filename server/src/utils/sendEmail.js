@@ -7,9 +7,7 @@ let transporterMode = null;
 const normalizePass = (pass) => String(pass || "").replace(/\s+/g, "");
 
 export const getEmailMode = () => {
-  const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER;
-  const gmailPass = normalizePass(process.env.GMAIL_APP_PASSWORD || process.env.SMTP_PASS);
-  if (gmailUser && gmailPass) return "gmail";
+  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) return "gmail";
   if (process.env.SMTP_HOST && process.env.SMTP_USER) return "smtp";
   return "dev";
 };

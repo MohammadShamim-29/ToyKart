@@ -2,6 +2,13 @@ import api from "../../api";
 
 const isDashboardPayload = (data) => Boolean(data?.kpis);
 
+function ensureReports(data) {
+  if (!data.reports) {
+    data.reports = { monthlySales: [], weeklyCategorySales: [], weeklyProductSales: [] };
+  }
+  return data;
+}
+
 /** Map legacy GET /admin/orders/analytics for old API processes still on port 5000. */
 function fromLegacyAnalytics(data) {
   if (data?.totalSales == null && data?.todaySales == null) {
@@ -54,6 +61,11 @@ function fromLegacyAnalytics(data) {
     returns: { awaiting: 0, pendingReview: 0 },
     payments: { mix: [] },
     refunds: { summary: [] },
+    reports: {
+      monthlySales: [],
+      weeklyCategorySales: [],
+      weeklyProductSales: []
+    },
     alerts: [],
     recentActivity: [],
     _legacy: true
@@ -75,7 +87,7 @@ export async function fetchDashboard() {
     try {
       const { data } = await attempt();
       if (isDashboardPayload(data)) {
-        return data;
+        return ensureReports(data);
       }
       const legacy = fromLegacyAnalytics(data);
       if (legacy) {

@@ -1,8 +1,8 @@
 import { Box, Button, Stack, Typography } from "@mui/material";
-import { FileDown, RefreshCw } from "lucide-react";
+import { FileDown, FileText, RefreshCw } from "lucide-react";
 import { formatDateTime } from "./dashboardUtils";
 
-export const DashboardHeader = ({ generatedAt, loading, exporting, onRefresh, onExportPdf }) => (
+export const DashboardHeader = ({ generatedAt, loading, exporting, exportingSales, onRefresh, onExportPdf, onExportSalesPdf }) => (
   <Stack
     direction={{ xs: "column", sm: "row" }}
     justifyContent="space-between"
@@ -34,13 +34,22 @@ export const DashboardHeader = ({ generatedAt, loading, exporting, onRefresh, on
         Refresh
       </Button>
       <Button
+        variant="outlined"
+        startIcon={<FileText size={18} />}
+        onClick={onExportSalesPdf}
+        disabled={loading || exportingSales}
+        sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+      >
+        {exportingSales ? "Downloading…" : "Sales Report PDF"}
+      </Button>
+      <Button
         variant="contained"
         startIcon={<FileDown size={18} />}
         onClick={onExportPdf}
         disabled={loading || exporting}
         sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600, boxShadow: "none" }}
       >
-        {exporting ? "Exporting…" : "Export PDF"}
+        {exporting ? "Downloading…" : "Executive PDF"}
       </Button>
     </Stack>
   </Stack>

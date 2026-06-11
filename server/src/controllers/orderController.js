@@ -30,7 +30,7 @@ const badRequest = (message) => {
   return err;
 };
 
-const DHAKA_SHIPPING_BDT = 60;
+const DHAKA_SHIPPING_BDT = 100;
 const OUTSIDE_DHAKA_SHIPPING_BDT = 100;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SSL_PAYMENT_METHOD = "SSLCommerz";
@@ -194,7 +194,7 @@ const createOrderInternal = async ({
     throw badRequest("Shipping amount is invalid.");
   }
 
-  const expectedTax = 0;
+  const expectedTax = Math.round(computedItems * 0.1 * 100) / 100;
   if (Math.abs(Number(taxPrice || 0) - expectedTax) > 0.01) {
     throw badRequest("Tax amount is invalid.");
   }

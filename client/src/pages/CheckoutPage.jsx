@@ -16,7 +16,7 @@ const defaultShipping = {
 };
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[+0-9()\-.\s]{7,20}$/;
-const DHAKA_SHIPPING_BDT = 60;
+const DHAKA_SHIPPING_BDT = 100;
 const OUTSIDE_DHAKA_SHIPPING_BDT = 100;
 
 const isDhakaCity = (city) => String(city || "").trim().toLowerCase() === "dhaka";
@@ -49,7 +49,7 @@ const CheckoutPage = () => {
   const { itemsPrice, shippingPrice, taxPrice, totalPrice } = useMemo(() => {
     const sub = items.reduce((sum, line) => sum + line.price * line.qty, 0);
     const ship = items.length ? (isDhakaCity(shipping.city) ? DHAKA_SHIPPING_BDT : OUTSIDE_DHAKA_SHIPPING_BDT) : 0;
-    const tax = 0;
+    const tax = Math.round(sub * 0.1 * 100) / 100;
     return {
       itemsPrice: sub,
       shippingPrice: ship,
@@ -376,6 +376,10 @@ const CheckoutPage = () => {
             <div>
               <dt>Shipping</dt>
               <dd>{formatBdt(shippingPrice)}</dd>
+            </div>
+            <div>
+              <dt>VAT (10%)</dt>
+              <dd>{formatBdt(taxPrice)}</dd>
             </div>
             <div className="cart-summary-total">
               <dt>Total</dt>

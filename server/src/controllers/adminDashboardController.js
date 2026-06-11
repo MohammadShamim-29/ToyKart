@@ -137,7 +137,10 @@ export const getAdminDashboard = async (req, res) => {
     recentRegistrations,
     categoryInventory,
     stockDistribution,
-    refundsSummary
+    refundsSummary,
+    monthlySales,
+    weeklyCategorySales,
+    weeklyProductSales
   ] = await Promise.all([
     sumRevenue({ paidAt: { $gte: todayStart } }),
     sumRevenue({ paidAt: { $gte: yesterdayStart, $lt: todayStart } }),
@@ -351,6 +354,74 @@ export const getAdminDashboard = async (req, res) => {
           amount: { $sum: "$refundAmount" }
         }
       }
+    ]),
+    Order.aggregate([
+      { $match: { ...revenueMatch, paidAt: { $gte: daysAgo(365, startOfDay()) } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m", date: "$paidAt" } },
+          revenue: { $sum: "$totalPrice" },
+          orders: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]),
+    Order.aggregate([
+      { $match: { ...revenueMatch, paidAt: { $gte: daysAgo(56, startOfDay()) } } },
+      { $unwind: "$orderItems" },
+      {
+        $lookup: {
+          from: "products",
+          localField: "orderItems.product",
+          foreignField: "_id",
+          as: "productInfo"
+        }
+      },
+      { $unwind: "$productInfo" },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "productInfo.category",
+          foreignField: "_id",
+          as: "categoryInfo"
+        }
+      },
+      { $unwind: "$categoryInfo" },
+      {
+        $group: {
+          _id: {
+            week: { $dateToString: { format: "%Y-W%V", date: "$paidAt" } },
+            category: "$categoryInfo.name"
+          },
+          revenue: { $sum: { $multiply: ["$orderItems.price", "$orderItems.qty"] } },
+          orders: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id.week": 1, revenue: -1 } }
+    ]),
+    Order.aggregate([
+      { $match: { ...revenueMatch, paidAt: { $gte: daysAgo(56, startOfDay()) } } },
+      { $unwind: "$orderItems" },
+      {
+        $lookup: {
+          from: "products",
+          localField: "orderItems.product",
+          foreignField: "_id",
+          as: "productInfo"
+        }
+      },
+      { $unwind: "$productInfo" },
+      {
+        $group: {
+          _id: {
+            week: { $dateToString: { format: "%Y-W%V", date: "$paidAt" } },
+            product: "$productInfo.name"
+          },
+          revenue: { $sum: { $multiply: ["$orderItems.price", "$orderItems.qty"] } },
+          units: { $sum: "$orderItems.qty" }
+        }
+      },
+      { $sort: { "_id.week": 1, revenue: -1 } }
     ])
   ]);
 
@@ -582,6 +653,25 @@ export const getAdminDashboard = async (req, res) => {
       }))
     },
     alerts,
-    recentActivity
+    recentActivity,
+    reports: {
+      monthlySales: monthlySales.map((r) => ({
+        month: r._id,
+        revenue: r.revenue,
+        orders: r.orders
+      })),
+      weeklyCategorySales: weeklyCategorySales.map((r) => ({
+        week: r._id.week,
+        category: r._id.category,
+        revenue: r.revenue,
+        orders: r.orders
+      })),
+      weeklyProductSales: weeklyProductSales.map((r) => ({
+        week: r._id.week,
+        product: r._id.product,
+        revenue: r.revenue,
+        units: r.units
+      }))
+    }
   });
 };
