@@ -9,7 +9,9 @@ const ProfilePage = () => {
   const dispatch = useDispatch();
   const fileInputRef = useRef(null);
   
-  const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   
@@ -37,7 +39,7 @@ const ProfilePage = () => {
     e.preventDefault();
     setError("");
     setSuccess("");
-    setLoading(true);
+    setProfileLoading(true);
     try {
       const { data } = await api.patch("/auth/profile", { name, phone });
       dispatch(setCredentials(data));
@@ -46,7 +48,7 @@ const ProfilePage = () => {
     } catch (err) {
       setError(err.response?.data?.message || "Could not update profile");
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
@@ -58,7 +60,7 @@ const ProfilePage = () => {
     }
     setError("");
     setSuccess("");
-    setLoading(true);
+    setPasswordLoading(true);
     try {
       await api.patch("/auth/password", { currentPassword, newPassword });
       setSuccess("Password changed successfully!");
@@ -69,7 +71,7 @@ const ProfilePage = () => {
     } catch (err) {
       setError(err.response?.data?.message || "Could not change password");
     } finally {
-      setLoading(false);
+      setPasswordLoading(false);
     }
   };
 
@@ -80,7 +82,7 @@ const ProfilePage = () => {
     const formData = new FormData();
     formData.append("image", file);
 
-    setLoading(true);
+    setAvatarLoading(true);
     setError("");
     try {
       const { data: uploadRes } = await api.post("/upload", formData, {
@@ -92,7 +94,7 @@ const ProfilePage = () => {
     } catch (err) {
       setError(err.response?.data?.message || "Could not upload image");
     } finally {
-      setLoading(false);
+      setAvatarLoading(false);
     }
   };
 
@@ -127,9 +129,9 @@ const ProfilePage = () => {
                 className="avatar-edit-btn" 
                 title="Change Avatar"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={loading}
+                disabled={avatarLoading}
               >
-                {loading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
+                {avatarLoading ? <Loader2 className="animate-spin" size={16} /> : <Camera size={16} />}
               </button>
               <input 
                 type="file" 
@@ -175,8 +177,8 @@ const ProfilePage = () => {
                 </div>
                 <div className="form-actions">
                   <button type="button" className="btn btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary" disabled={loading}>
-                    {loading ? "Saving..." : "Save Changes"}
+                  <button type="submit" className="btn btn-primary" disabled={profileLoading}>
+                    {profileLoading ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
               </form>
@@ -234,8 +236,8 @@ const ProfilePage = () => {
                     <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
                   </div>
                   <div className="form-actions-stack">
-                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-                      {loading ? "Updating..." : "Update Password"}
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={passwordLoading}>
+                      {passwordLoading ? "Updating..." : "Update Password"}
                     </button>
                     <button type="button" className="btn btn-ghost" style={{ width: '100%', marginTop: '0.5rem' }} onClick={() => setIsChangingPassword(false)}>
                       Cancel

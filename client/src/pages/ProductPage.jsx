@@ -87,6 +87,7 @@ const ProductPage = () => {
   };
 
   useEffect(() => {
+    let cancelled = false;
     const fetchRelated = async () => {
       try {
         const { data } = await api.get("/products", {
@@ -96,6 +97,7 @@ const ProductPage = () => {
             limit: 12
           }
         });
+        if (cancelled) return;
         const allProducts = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
         if (allProducts.length === 0 || !product) return;
         const catId = product.category?._id?.toString?.() ?? product.category?.toString?.() ?? product.category;
@@ -108,10 +110,11 @@ const ProductPage = () => {
         const pick = same.length > 0 ? same : fallback;
         setRelated(pick.slice(0, 6));
       } catch {
-        setRelated([]);
+        if (!cancelled) setRelated([]);
       }
     };
     if (product) fetchRelated();
+    return () => { cancelled = true; };
   }, [product]);
 
   useEffect(() => {

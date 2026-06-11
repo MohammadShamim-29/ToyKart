@@ -61,9 +61,7 @@ const ProductDetailTabs = ({ product, onRatingUpdated }) => {
   }, [productId, fetchReviews]);
 
   useEffect(() => {
-    if (userInfo?.name) {
-      setFormName(userInfo.name);
-    }
+    setFormName(userInfo?.name || "");
   }, [userInfo?.name]);
 
   const additionalRows = useMemo(() => {

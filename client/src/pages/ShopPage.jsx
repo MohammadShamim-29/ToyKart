@@ -52,15 +52,17 @@ const ShopPage = () => {
   };
 
   useEffect(() => {
+    let cancelled = false;
     const fetchCats = async () => {
       try {
         const { data } = await api.get("/categories");
-        setCategories(Array.isArray(data) ? data : []);
+        if (!cancelled) setCategories(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error(err);
+        if (!cancelled) console.error(err);
       }
     };
     fetchCats();
+    return () => { cancelled = true; };
   }, []);
 
   const activeCategory = categories.find(c => c.slug === categoryId || c._id === categoryId);

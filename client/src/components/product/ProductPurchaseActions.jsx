@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import clsx from "clsx";
-import { ShoppingCart } from "lucide-react";
-import { addToCartAjax } from "../../app/addToCartAjax";
+import { ShoppingCart, Zap } from "lucide-react";
+import { addToCartAjax, buyNowAjax } from "../../app/addToCartAjax";
 import ProductColorSelector from "./ProductColorSelector";
 
 const ProductPurchaseActions = ({
@@ -14,6 +15,7 @@ const ProductPurchaseActions = ({
   needsColor
 }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [qty, setQty] = useState(1);
   const [cartMsg, setCartMsg] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -63,6 +65,27 @@ const ProductPurchaseActions = ({
     }
   };
 
+  const handleBuyNow = async () => {
+    if (!canAdd || !product) return;
+    if (isAdding) return;
+    const safeQty = Math.min(Math.max(1, qty), maxQty);
+    setIsAdding(true);
+    try {
+      await buyNowAjax({
+        dispatch,
+        navigate,
+        product,
+        quantity: safeQty,
+        variant: selectedVariant,
+        variantId: selectedVariant?._id
+      });
+    } catch {
+      // silent
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   return (
     <div className="pd-purchase">
       {variants?.length > 0 ? (
@@ -98,6 +121,15 @@ const ProductPurchaseActions = ({
         >
           <ShoppingCart size={20} />
           {isAdding ? "Adding..." : isAdded ? "Added" : inStock ? "Add to cart" : "Out of stock"}
+        </button>
+        <button
+          type="button"
+          className="btn btn-accent pd-buy-now"
+          disabled={!canAdd || isAdding}
+          onClick={handleBuyNow}
+        >
+          <Zap size={20} />
+          Buy now
         </button>
       </div>
       {needsColor && !selectedVariant ? (

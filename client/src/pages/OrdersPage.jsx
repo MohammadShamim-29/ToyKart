@@ -289,7 +289,10 @@ const OrdersPage = () => {
   const latestRequestByOrderId = returnRequests.reduce((acc, req) => {
     const orderId = req?.order?._id || req?.order;
     if (!orderId) return acc;
-    if (!acc[orderId]) acc[orderId] = req;
+    const prev = acc[orderId];
+    if (!prev || new Date(req.createdAt) > new Date(prev.createdAt)) {
+      acc[orderId] = req;
+    }
     return acc;
   }, {});
 

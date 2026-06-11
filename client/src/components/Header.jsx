@@ -58,10 +58,9 @@ const Header = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (keyword.trim()) {
-      navigate(`/shop?keyword=${encodeURIComponent(keyword.trim())}`);
-    } else {
-      navigate("/shop");
+    const target = keyword.trim() ? `/shop?keyword=${encodeURIComponent(keyword.trim())}` : "/shop";
+    if (location.pathname + location.search !== target) {
+      navigate(target);
     }
   };
 
@@ -143,9 +142,9 @@ const Header = () => {
                   const val = e.target.value;
                   setKeyword(val);
                   if (val.trim()) {
-                    navigate(`/shop?keyword=${encodeURIComponent(val.trim())}`);
+                    navigate(`/shop?keyword=${encodeURIComponent(val.trim())}`, { replace: true });
                   } else if (location.pathname === '/shop') {
-                    navigate("/shop");
+                    navigate("/shop", { replace: true });
                   }
                 }}
               />

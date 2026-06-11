@@ -34,6 +34,7 @@ const DHAKA_SHIPPING_BDT = 100;
 const OUTSIDE_DHAKA_SHIPPING_BDT = 100;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SSL_PAYMENT_METHOD = "SSLCommerz";
+const TAX_RATE = 0;
 
 const normalizeText = (value) => String(value ?? "").trim();
 const isDhakaCity = (city) => normalizeText(city).toLowerCase() === "dhaka";
@@ -182,27 +183,14 @@ const createOrderInternal = async ({
   }
 
   const computedItems = resolvedItems.reduce((sum, i) => sum + i.qty * i.price, 0);
-  if (Math.abs(computedItems - Number(itemsPrice)) > 0.01) {
-    throw badRequest("Order totals do not match line items.");
-  }
-
   const expectedShipping = calculateShippingPrice({
     city: normalizedShippingAddress.city,
     hasItems: resolvedItems.length > 0
   });
-  if (Math.abs(Number(shippingPrice || 0) - expectedShipping) > 0.01) {
-    throw badRequest("Shipping amount is invalid.");
-  }
 
-  const expectedTax = Math.round(computedItems * 0.1 * 100) / 100;
-  if (Math.abs(Number(taxPrice || 0) - expectedTax) > 0.01) {
-    throw badRequest("Tax amount is invalid.");
-  }
+  const expectedTax = Math.round(computedItems * TAX_RATE * 100) / 100;
 
   const computedTotal = computedItems + expectedTax + expectedShipping;
-  if (Math.abs(computedTotal - Number(totalPrice)) > 0.01) {
-    throw badRequest("Order total is incorrect.");
-  }
 
   const actor = actorFromUser(req.user);
   const baseOrder = {
